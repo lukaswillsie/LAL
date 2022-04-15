@@ -27,23 +27,23 @@ class Dataset:
         nStart -- number of labelled datapoints (size of indicesKnown)
         '''
         self.nStart = nStart
-        # first get 1 positive and 1 negative point so that both classes are represented and initial classifer could be trained.
-        cl1 = np.nonzero(self.trainLabels==1)[0]
-        indices1 = self.start_state_random.permutation(cl1)
-        self.indicesKnown = np.array([indices1[0]])
-        cl2 = np.nonzero(self.trainLabels==0)[0]
-        indices2 = self.start_state_random.permutation(cl2)
-        self.indicesKnown = np.concatenate(([self.indicesKnown, np.array([indices2[0]])]))
-        # combine all the rest of the indices that have not been sampled yet
-        indicesRestAll = np.concatenate(([indices1[1:], indices2[1:]]))
+        # Get a point from each class
+        classes = np.unique(self.trainLabels)
+        self.indicesKnown = np.array([]).astype(int)
+        indicesRestAll = np.array([]).astype(int)
+        for cls in classes:
+            cls_indices = np.nonzero(self.trainLabels==cls)[0]
+            cls_indices = self.start_state_random.permutation(cls_indices)
+            self.indicesKnown = np.concatenate((self.indicesKnown, np.array([cls_indices[0]])))
+            indicesRestAll = np.concatenate((indicesRestAll, cls_indices[1:]))
         # permute them
         indicesRestAll = self.start_state_random.permutation(indicesRestAll)
         # if we need more than 2 datapoints, select the rest nStart-2 at random
-        if nStart>2:
-            self.indicesKnown = np.concatenate(([self.indicesKnown, indicesRestAll[0:nStart-2]]))
+        if nStart>len(classes):
+            self.indicesKnown = np.concatenate(([self.indicesKnown, indicesRestAll[0:nStart-len(classes)]]))
         # the rest of the points will be unlabeled at the beginning
         self.indicesUnknown = indicesRestAll[nStart-2:]
-        
+
 
 class DatasetCheckerboard2x2(Dataset):
     '''Loads XOR-like dataset of checkerboard shape of size 2x2.
@@ -66,6 +66,21 @@ class DatasetCheckerboard2x2(Dataset):
         self.testData = dt['x']
         self.testLabels = dt['y']
         self.testData = scaler.transform(self.testData)
+
+
+class DatasetMNIST(Dataset):
+    def __init__(self, seed=None):
+        Dataset.__init__(self, seed)
+
+        filename = './data/mnist-784_train.npz'
+        dt = np.load(filename)
+        self.trainData = dt['x']
+        self.trainLabels = dt['y'][:,None]
+
+        filename = './data/mnist-784_test.npz'
+        dt = np.load(filename)
+        self.testData = dt['x']
+        self.testLabels = dt['y'][:,None]
 
         
 class DatasetCheckerboard4x4(Dataset):
