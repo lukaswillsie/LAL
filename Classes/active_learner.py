@@ -268,20 +268,18 @@ class ActiveLearnerACNML(ActiveLearner):
         svi_mean.requires_grad = False
         svi_log_std.requires_grad = False
 
-        # points_seen = 0
+        points_seen = 0
         for i, unknown_index in enumerate(self.indicesUnknown):
             label_probabilities = []
             for j, t in enumerate(labels):
                 temp_model = self.model.clone()
                 train_data = np.concatenate(
                     (
-                        self.dataset.trainData[self.indicesKnown, :],
                         self.dataset.trainData[(unknown_index,), :]
                     )
                 )
                 train_labels = np.concatenate(
                     (
-                        self.dataset.trainLabels[self.indicesKnown, :],
                         np.array([[t]])
                     )
                 )
@@ -298,8 +296,8 @@ class ActiveLearnerACNML(ActiveLearner):
                 max_uncertainity = entropy
                 selectedIndex = unknown_index
                 selectedIndex1toN = i
-            # points_seen += 1
-            # print(points_seen)
+            points_seen += 1
+            print(points_seen)
 
         self.indicesKnown = np.concatenate(([self.indicesKnown, np.array([selectedIndex])]))
         self.indicesUnknown = np.delete(self.indicesUnknown, selectedIndex1toN)
