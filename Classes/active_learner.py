@@ -31,6 +31,7 @@ class ActiveLearner:
         '''forget all the points sampled by active learning and set labelled and unlabelled sets to default of the dataset'''
         self.indicesKnown = self.dataset.indicesKnown
         self.indicesUnknown = self.dataset.indicesUnknown
+        self.model.reset()
         
         
     def train(self):

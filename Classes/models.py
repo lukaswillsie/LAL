@@ -52,6 +52,12 @@ class Model:
         """
         raise NotImplementedError
 
+    def reset(self):
+        """
+        Reset the model (re-initialize the weights) for a new experiment
+        """
+        pass
+
 
 class SKLearnModel(Model):
     def __init__(self, model):
@@ -154,6 +160,10 @@ class PyTorchModel(Model):
             self.lr_decay,
             self.early_stopping_patience
         )
+
+    def reset(self):
+        for p in self.model.parameters():
+            torch.nn.init.normal_(p)
 
 
 class SimpleMLP(nn.Module):
