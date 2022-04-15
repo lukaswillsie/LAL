@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
                 if model_name == 'mlp':
                     model = PyTorchModel(
-                        SimpleMLP(dataset.trainData.shape[1], 10, len(np.unique(dataset.trainLabels))),
+                        SimpleMLP(dataset.trainData.shape[1], 10, 1),
                         1000,
                         0.01,
                         early_stopping_patience=50

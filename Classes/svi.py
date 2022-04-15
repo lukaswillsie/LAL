@@ -14,10 +14,11 @@ class GaussianSVI:
         # you must use the reparameterization trick.  Also remember that
         # we are parameterizing the _log_ of the standard deviation.
 
-    def diag_gaussian_logpdf(self, x, mean, log_std):
+    @staticmethod
+    def diag_gaussian_logpdf(x, mean, log_std):
         # Evaluate the density of single point on a diagonal multivariate Gaussian.
         normal = torch.distributions.normal.Normal(mean, torch.exp(log_std))
-        return torch.sum(normal.log_prob(x), axis=-1)
+        return torch.sum(normal.log_prob(x), dim=-1)
 
     def elbo(self, logprob, num_samples, mean, log_std):
         # Single-sample Monte Carlo estimate of the variational lower bound.

@@ -1,11 +1,12 @@
 import copy
 
 import torch
+from Classes.dataset import DatasetCheckerboard2x2
 from numpy import ndarray
 from sklearn import clone
 from torch import nn, Tensor, optim
 import numpy as np
-from torch.nn import CrossEntropyLoss
+from torch.nn import BCEWithLogitsLoss
 
 
 class Model:
@@ -84,46 +85,43 @@ class PyTorchModel(Model):
         self.lr = lr
         self.lr_decay = lr_decay
         self.early_stopping_patience = early_stopping_patience
-        self.criterion = CrossEntropyLoss()
+        self.total_params = model.total_params
+        self.standard_loss = BCEWithLogitsLoss()
         self.optimizer = optim.Adam(
-            list(model.parameters()), lr=lr
+            model.parameters(), lr=lr
         )
 
-        self.total_params = 0
-        for p in self.model.parameters():
-            self.total_params += self._shape_size(p.data.shape)
-
     def set_parameters(self, new_parameters: Tensor):
-        assert len(new_parameters.shape) == 1
-        assert new_parameters.shape[0] == self.total_params
-        offset = 0
-        for param in self.model.parameters():
-            shape_size = self._shape_size(param.data.shape)
-            param.data = new_parameters[offset:offset + shape_size].reshape(param.data.shape)
-            offset += shape_size
+        self.model.set_parameters(new_parameters)
 
-    def _shape_size(self, size: torch.Size):
-        mult = 1
-        for dim in size:
-            mult *= dim
-        return mult
+    def get_parameters(self):
+        return self.model.get_parameters()
 
-    def fit(self, X: ndarray, y: ndarray):
+    @staticmethod
+    def criterion(m, inputs, labels):
+        return BCEWithLogitsLoss()(m.forward(inputs).view(-1), labels)
+
+    # <criterion> should be a callable that takes in the model outputs
+    # and labels, each as flattened arrays, and returns a differentiable
+    # loss
+    def fit(self, X: ndarray, y: ndarray, criterion=None):
+        criterion = criterion if criterion else self.criterion
         best_loss = float("inf")
         early_stop = 0
-
         train_data = torch.from_numpy(X).float()
-        train_labels = torch.from_numpy(y).long()
+        train_labels = torch.from_numpy(y).float()
         train_labels = train_labels.view(-1)
 
+        # if torch.cuda.is_available():
+        #     print("Using CUDA...")
+        #     train_data = train_data.cuda()
+        #     train_labels = train_labels.cuda()
+        #     self.model.cuda()
         for epoch in range(self.epochs):
-
-            self.optimizer.param_groups[0]["lr"] *= self.lr_decay
-
-            outputs = self.model.forward(train_data)
-            train_loss = self.criterion(outputs, train_labels)
-
             self.optimizer.zero_grad()
+
+            train_loss = criterion(self.model, train_data, train_labels)
+
             train_loss.backward()
             self.optimizer.step()
 
@@ -144,7 +142,9 @@ class PyTorchModel(Model):
 
     def predict_proba(self, X: ndarray) -> ndarray:
         with torch.no_grad():
-            return self.model.forward(torch.from_numpy(X).float()).numpy()
+            positive_prob = torch.sigmoid(self.model.forward(torch.from_numpy(X).float()))
+            prob = torch.cat((1 - positive_prob, positive_prob), dim=1)
+            return prob.numpy()
 
     def clone(self):
         return PyTorchModel(
@@ -156,10 +156,6 @@ class PyTorchModel(Model):
         )
 
 
-class ACNMLModel(Model):
-    pass
-
-
 class SimpleMLP(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(SimpleMLP, self).__init__()
@@ -168,15 +164,50 @@ class SimpleMLP(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, output_size),
-            nn.Softmax(dim=-1)
+            nn.Linear(hidden_size, output_size)
         )
+        self.total_params = 0
+        for p in self.parameters():
+            self.total_params += self._shape_size(p.data.shape)
+
+    def set_parameters(self, new_parameters: Tensor):
+        assert len(new_parameters.shape) == 1
+        assert new_parameters.shape[0] == self.total_params
+        # Create a clone of the parameters instead of pointing directly to the input Tensor
+        new_parameters = new_parameters.detach().clone()
+        offset = 0
+        for param in self.parameters():
+            shape_size = self._shape_size(param.data.shape)
+            param.data = new_parameters[offset:offset + shape_size].reshape(param.data.shape)
+            offset += shape_size
+
+    def get_parameters(self):
+        params = torch.zeros(self.total_params)
+        offset = 0
+        for param in self.parameters():
+            shape_size = self._shape_size(param.data.shape)
+            params[offset:offset + shape_size] = param.data.view(-1).detach()
+            offset += shape_size
+        return params
 
     def forward(self, x):
         return self.layers(x)
+
+    def _shape_size(self, size: torch.Size):
+        mult = 1
+        for dim in size:
+            mult *= dim
+        return mult
+
+# mlp = SimpleMLP(2,5,1)
+# model = PyTorchModel(mlp, 1000, 1e-2)
+#
+# d = DatasetCheckerboard2x2()
+# # model.fit(d.trainData, d.trainLabels, criterion=None)
+# p = model.get_parameters()
+# for par in mlp.parameters():
+#     print(par)
+#
+# print(model.get_parameters())
+# model.set_parameters(torch.zeros(mlp.total_params))
+# print(model.get_parameters())

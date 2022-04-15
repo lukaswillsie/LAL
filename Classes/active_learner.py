@@ -150,6 +150,7 @@ class ActiveLearnerPNML(ActiveLearner):
         max_uncertainity = float("-inf")
         selectedIndex = -1
         selectedIndex1toN = -1
+        # points_seen = 0
         for i, unknown_index in enumerate(self.indicesUnknown):
             label_probabilities = []
             for j, t in enumerate(labels):
@@ -178,6 +179,8 @@ class ActiveLearnerPNML(ActiveLearner):
                 max_uncertainity = entropy
                 selectedIndex = unknown_index
                 selectedIndex1toN = i
+            # points_seen += 1
+            # print(points_seen)
 
         self.indicesKnown = np.concatenate(([self.indicesKnown, np.array([selectedIndex])]))
         self.indicesUnknown = np.delete(self.indicesUnknown, selectedIndex1toN)
@@ -228,9 +231,10 @@ class ActiveLearnerACNML(ActiveLearner):
                 print("Iteration {} lower bound {}".format(t, svi.objective(params)))
 
         def update(params):
+            optim = torch.optim.SGD(params, lr=1e-5, momentum=0.9)
+            optim.zero_grad()
             loss = svi.objective(params)
             loss.backward()
-            optim = torch.optim.SGD(params, lr=1e-5, momentum=0.9)
             optim.step()
             return params
 
@@ -241,6 +245,10 @@ class ActiveLearnerACNML(ActiveLearner):
             callback(params, i)
 
         return params
+
+    @staticmethod
+    def criterion(m, inputs, labels, svi_mean, svi_logstd):
+        return -(torch.sum(torch.log(m(inputs))) + GaussianSVI.diag_gaussian_logpdf(m.get_parameters(), svi_mean, svi_logstd))
 
     def selectNext(self):
         # 1. For each unlabelled point x
@@ -256,7 +264,10 @@ class ActiveLearnerACNML(ActiveLearner):
         selectedIndex1toN = -1
 
         (svi_mean, svi_log_std) = self.get_approximate_posterior()
+        svi_mean.requires_grad = False
+        svi_log_std.requires_grad = False
 
+        # points_seen = 0
         for i, unknown_index in enumerate(self.indicesUnknown):
             label_probabilities = []
             for j, t in enumerate(labels):
@@ -275,6 +286,7 @@ class ActiveLearnerACNML(ActiveLearner):
                 )
                 train_labels = np.ravel(train_labels)
                 temp_model.set_parameters(svi_mean)
+                temp_model.fit(train_data, train_labels, criterion=lambda m, i, l: self.criterion(m, i, l, svi_mean, svi_log_std))
                 # Get the probability predicted for class t
                 pred = temp_model.predict_proba(self.dataset.trainData[(unknown_index,), :])[:, j]
                 label_probabilities.append(pred + torch.exp(self.log_joint(svi_mean.unsqueeze(dim=0))).item())
@@ -285,6 +297,8 @@ class ActiveLearnerACNML(ActiveLearner):
                 max_uncertainity = entropy
                 selectedIndex = unknown_index
                 selectedIndex1toN = i
+            # points_seen += 1
+            # print(points_seen)
 
         self.indicesKnown = np.concatenate(([self.indicesKnown, np.array([selectedIndex])]))
         self.indicesUnknown = np.delete(self.indicesUnknown, selectedIndex1toN)
