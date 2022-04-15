@@ -1,10 +1,7 @@
-from multiprocessing import Pool
-
 import numpy as np
 from Classes.models import Model, PyTorchModel
 from sklearn import metrics
 from scipy import stats
-from sklearn.base import clone
 from sklearn.ensemble import RandomForestClassifier
 from Classes.svi import GaussianSVI
 import torch

@@ -2,7 +2,7 @@ import getopt
 import sys
 
 import numpy as np
-from Classes.models import SKLearnModel, PyTorchModel, SimpleMLP
+from Classes.models import PyTorchModel, SimpleMLP
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 # for plotting
 import matplotlib.pyplot as plt
@@ -15,7 +15,7 @@ from Classes.active_learner import ActiveLearnerUncertainty
 from Classes.active_learner import ActiveLearnerLAL
 # import the dataset class
 from Classes.dataset import DatasetCheckerboard2x2, DatasetCheckerboard4x4, DatasetRotatedCheckerboard2x2, \
-    DatasetStriatumMini, DatasetSimulatedUnbalanced
+    DatasetStriatumMini, DatasetSimulatedUnbalanced, DatasetMNIST
 # import Experiment and Result classes that will be responsible for running AL and saving the results
 from Classes.experiment import Experiment
 from Classes.results import Results
@@ -142,7 +142,8 @@ if __name__ == "__main__":
         "checkerboard4x4": DatasetCheckerboard4x4,
         "rotatedcheckerboard2x2": DatasetRotatedCheckerboard2x2,
         "striatummini": DatasetStriatumMini,
-        "unbalanced": lambda seed=None: DatasetSimulatedUnbalanced(1000, 2, seed)
+        "unbalanced": lambda seed=None: DatasetSimulatedUnbalanced(1000, 2, seed),
+        "mnist": DatasetMNIST
     }
 
     supported_learners = [
@@ -164,12 +165,7 @@ if __name__ == "__main__":
     valid_models = {
         "random-forest": lambda: RandomForestClassifier(n_estimators=50, n_jobs=4),
         "logistic": lambda: LogisticRegression(solver="lbfgs", penalty="none"),
-        "mlp": lambda input_size, output_size: PyTorchModel(
-            SimpleMLP(input_size, 10, output_size),
-            100,
-            0.01,
-            early_stopping_patience=50
-        )
+        "mlp": None
     }
 
     experiments = 1
@@ -184,7 +180,10 @@ if __name__ == "__main__":
             iterations = int(a)
         if o == "--dataset":
             dataset = valid_datasets[a.lower()](seed=42)
-            dataset.setStartState(2)
+            if isinstance(dataset, DatasetMNIST):
+                dataset.setStartState(10)
+            else:
+                dataset.setStartState(2)
         if o == "--name":
             name = a
         if o == "--model":
@@ -203,14 +202,21 @@ if __name__ == "__main__":
                 if learner not in supported_learners:
                     print(f"Supported learners are: {supported_learners}")
                     exit(1)
-
                 if model_name == 'mlp':
-                    model = PyTorchModel(
-                        SimpleMLP(dataset.trainData.shape[1], 10, 1),
-                        1000,
-                        0.01,
-                        early_stopping_patience=50
-                    )
+                    if isinstance(dataset, DatasetMNIST):
+                        model = PyTorchModel(
+                            SimpleMLP([dataset.trainData.shape[1], 10]),
+                            1000,
+                            0.01,
+                            early_stopping_patience=50
+                        )
+                    else:
+                        model = PyTorchModel(
+                            SimpleMLP([dataset.trainData.shape[1], 10, 10, 1]),
+                            1000,
+                            0.01,
+                            early_stopping_patience=50
+                        )
                 else:
                     model = valid_models[model_name]()
                 if learner in normal_learners:
