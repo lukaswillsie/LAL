@@ -101,7 +101,7 @@ def predict_probabilities(m, inputs):
     with torch.no_grad():
         pred = m(inputs)
         # Binary classification with logits
-        if pred.shape[0] == 1:
+        if pred.shape[-1] == 1:
             pos_prob = torch.sigmoid(pred)
             return torch.cat((1 - pos_prob, pos_prob), dim=1)
         # Softmax
