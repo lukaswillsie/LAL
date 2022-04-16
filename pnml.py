@@ -1,6 +1,4 @@
 import copy
-import pickle
-import time
 
 import numpy as np
 import torch
@@ -8,10 +6,10 @@ from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2
 from Classes.models import SimpleMLP
 from scipy import stats
 from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
-from util import fit, evaluate, predict_probabilities
+from util import fit, predict_probabilities, Metrics
 
 
-def select_next():
+def select_next_pnml():
     # 1. For each unlabelled point x
     #   i. For each label t
     #       a. Add the (x, t) pair to the data and fit
@@ -40,12 +38,12 @@ def select_next():
             train_labels = torch.cat(
                 (
                     known_labels,
-                    (torch.Tensor([[t]]) if dataset.is_binary else torch.LongTensor([[t]]))#.cuda()
+                    (torch.Tensor([[t]]) if dataset.is_binary else torch.LongTensor([[t]]))
                 ),
                 dim=0
             )
-            fit(temp_model, 1000, 1e-2, lambda m: loss_function(m(train_data), train_labels), early_stopping_patience=30)
-            # Get the probability predicted for class t
+            fit(*fit_params, lambda m: loss_function(m(train_data), train_labels),
+                early_stopping_patience=40)            # Get the probability predicted for class t
             pred = predict_probabilities(temp_model, dataset.trainData[(unknown_index,), :])[:, j]
             label_probabilities.append(pred.item())
         label_probabilities = np.array(label_probabilities)
@@ -56,14 +54,37 @@ def select_next():
             selectedIndex = unknown_index
             selectedIndex1toN = i
         points_seen += 1
-        print(points_seen)
+        if points_seen % 100 == 0:
+            print(points_seen)
 
     dataset.indicesKnown = np.concatenate(([dataset.indicesKnown, np.array([selectedIndex])]))
     dataset.indicesUnknown = np.delete(dataset.indicesUnknown, selectedIndex1toN)
 
 
-experiments = 1
+def select_next_random():
+    selected = torch.randint(low=0, high=dataset.indicesUnknown.shape[0], size=(1,)).item()
+    dataset.indicesKnown = np.concatenate(([dataset.indicesKnown, np.array([dataset.indicesUnknown[selected]])]))
+    dataset.indicesUnknown = np.delete(dataset.indicesUnknown, selected)
+
+
+def select_next_uncertainty():
+    unknown_prob = predict_probabilities(model, dataset.trainData[dataset.indicesUnknown, :]).numpy()
+    uncertainty = stats.entropy(unknown_prob, axis=1)
+    most_uncertain_index = np.argmax(uncertainty, axis=0)
+    dataset.indicesKnown = np.concatenate(([dataset.indicesKnown, np.array([dataset.indicesUnknown[most_uncertain_index]])]))
+    dataset.indicesUnknown = np.delete(dataset.indicesUnknown, most_uncertain_index)
+
+
+experiments = 5
 iterations = 100
+method = "pnml"
+
+select_next_options = {
+    "rand": select_next_random,
+    "pnml": select_next_pnml,
+    "uncertainty": select_next_uncertainty
+}
+
 dataset = DatasetCheckerboard2x2()
 dataset.setStartState(2)
 dataset.set_is_binary()
@@ -79,9 +100,19 @@ if not dataset.is_binary:
 
 classes = torch.unique(dataset.trainLabels)
 
-model = SimpleMLP([2,10,10,1])
-# model = SimpleMLP([784, 10])
-# model.cuda()
+
+model = None
+fit_params = None
+if isinstance(dataset, DatasetCheckerboard2x2):
+    model = SimpleMLP([2, 5, 10, 5, 1])
+    fit_params = (model, 100, 1e-2)
+elif isinstance(dataset, DatasetMNIST):
+    model = SimpleMLP([784, 10])
+    fit_params = (model, 1000, 1e-2)
+
+if not model:
+    print("ERROR: Haven't implemented this script for the chosen dataset")
+    exit(-1)
 
 multiclass_loss = CrossEntropyLoss()
 
@@ -94,16 +125,25 @@ def multiclass_criterion(outputs, labels):
 loss_function = BCEWithLogitsLoss() if dataset.is_binary else multiclass_criterion
 
 
-accuracies = []
+name = method + "-" + ("mnist" if isinstance(dataset, DatasetMNIST) else "checkerboard2x2")
+metrics = Metrics(name, method)
+
+select_next = select_next_options[method]
 for experiment in range(experiments):
+    metrics.new_experiment()
+    print(f"Experiment {experiment+1}", end="")
     for iteration in range(iterations):
         # 1. Train the model
         # 2. Evaluate the model
         # 3. Select the next point
         known_data = dataset.trainData[dataset.indicesKnown, :]
         known_labels = dataset.trainLabels[dataset.indicesKnown, :]
-        fit(model, 1000, 1e-2, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
-        accuracies.append(evaluate(model, dataset))
-        print(accuracies[-1])
-        pickle.dump(accuracies, open("accuracies.pkl", "wb"))
+        fit(*fit_params, lambda m: loss_function(m(known_data), known_labels),
+            early_stopping_patience=40)
+        metrics.evaluate(model, dataset, loss_function)
         select_next()
+        print(".", end="")
+    print()
+    metrics.save()
+
+metrics.plot()
