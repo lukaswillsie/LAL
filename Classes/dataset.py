@@ -20,6 +20,7 @@ class Dataset:
         self.testData = np.array([[]])
         self.testLabels = np.array([[]])
         self.start_state_random = np.random.RandomState(seed) if seed is not None else np.random
+        self.is_binary = True
         
     def setStartState(self, nStart):
         ''' This functions initialises fields indicesKnown and indicesUnknown which contain the indices of labelled and unlabeled datapoints
@@ -43,6 +44,13 @@ class Dataset:
             self.indicesKnown = np.concatenate(([self.indicesKnown, indicesRestAll[0:nStart-len(classes)]]))
         # the rest of the points will be unlabeled at the beginning
         self.indicesUnknown = indicesRestAll[nStart-2:]
+
+    def set_is_binary(self):
+        """
+        Call this after the object has been filled with data
+        """
+        classes = np.unique(self.trainLabels)
+        self.is_binary = len(classes) == 2
 
 
 class DatasetCheckerboard2x2(Dataset):
