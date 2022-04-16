@@ -57,6 +57,7 @@ class DatasetCheckerboard2x2(Dataset):
         dt = np.load(filename)
         self.trainData = dt['x']
         self.trainLabels = dt['y']
+        self.is_binary = True
                 
         scaler = preprocessing.StandardScaler().fit(self.trainData)
         self.trainData = scaler.transform(self.trainData)
