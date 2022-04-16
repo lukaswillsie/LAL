@@ -1,75 +1,17 @@
 import copy
 import pickle
+import time
 
 import numpy as np
 import torch
-from Classes.dataset import DatasetMNIST
+from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2
 from Classes.models import SimpleMLP
 from scipy import stats
-from torch import optim
-from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss
+from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
+from util import fit, evaluate, predict_probabilities
 
 
-def evaluate(m):
-    with torch.no_grad():
-        pred = m(dataset.testData)
-        if is_binary:
-            pred = torch.sigmoid(pred)
-            pred = (pred >= 0.5).long()
-        else:
-            pred = torch.softmax(pred, dim=1)
-            pred = torch.argmax(pred, dim=1, keepdim=True)
-        return (torch.sum(pred == dataset.testLabels.long()) / pred.shape[0]).item()
-
-
-def predict_probabilities(m, inputs):
-    pred = m(inputs)
-    if is_binary:
-        pos_prob = torch.sigmoid(pred)
-        return torch.cat((1 - pos_prob, pos_prob), dim=1)
-    else:
-        return torch.softmax(pred, dim=1)
-
-
-multiclass_loss = CrossEntropyLoss()
-
-
-def multiclass_criterion(outputs, labels):
-    # CrossEntropyLoss requires flattened labels
-    return multiclass_loss(outputs, labels.view(-1))
-
-
-def fit(target_model, inputs, labels, epochs, lr, early_stopping_patience=None):
-    criterion = BCEWithLogitsLoss() if is_binary else multiclass_criterion
-    optimizer = optim.Adam(
-        target_model.parameters(), lr=lr
-    )
-    best_loss = float("inf")
-    early_stop = 0
-
-    for epoch in range(epochs):
-        optimizer.zero_grad()
-
-        train_loss = criterion(target_model(inputs), labels)
-        # print(train_loss)
-
-        train_loss.backward()
-        optimizer.step()
-
-        if early_stopping_patience:
-            if train_loss.item() < best_loss:
-                early_stop = 0
-                best_loss = train_loss.item()
-            else:
-                early_stop += 1
-
-            if early_stop > early_stopping_patience:
-                return
-
-    return
-
-
-def selectNext():
+def select_next():
     # 1. For each unlabelled point x
     #   i. For each label t
     #       a. Add the (x, t) pair to the data and fit
@@ -98,11 +40,11 @@ def selectNext():
             train_labels = torch.cat(
                 (
                     known_labels,
-                    (torch.Tensor([[t]]) if is_binary else torch.LongTensor([[t]])).cuda()
+                    (torch.Tensor([[t]]) if dataset.is_binary else torch.LongTensor([[t]]))#.cuda()
                 ),
                 dim=0
             )
-            fit(temp_model, train_data, train_labels, 1000, 1e-2, early_stopping_patience=30)
+            fit(temp_model, 1000, 1e-2, lambda m: loss_function(m(train_data), train_labels), early_stopping_patience=30)
             # Get the probability predicted for class t
             pred = predict_probabilities(temp_model, dataset.trainData[(unknown_index,), :])[:, j]
             label_probabilities.append(pred.item())
@@ -122,24 +64,35 @@ def selectNext():
 
 experiments = 1
 iterations = 100
-dataset = DatasetMNIST()
-dataset.setStartState(10)
+dataset = DatasetCheckerboard2x2()
+dataset.setStartState(2)
+dataset.set_is_binary()
 
-dataset.trainData = torch.from_numpy(dataset.trainData).float().cuda()
-dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float().cuda()
-dataset.testData = torch.from_numpy(dataset.testData).float().cuda()
-dataset.testLabels = torch.from_numpy(dataset.testLabels).float().cuda()
+dataset.trainData = torch.from_numpy(dataset.trainData).float()
+dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float()
+dataset.testData = torch.from_numpy(dataset.testData).float()
+dataset.testLabels = torch.from_numpy(dataset.testLabels).float()
+
+
+if not dataset.is_binary:
+    dataset.trainLabels = dataset.trainLabels.long()
 
 classes = torch.unique(dataset.trainLabels)
-is_binary = len(classes) == 2
 
-if not is_binary:
-    dataset.trainLabels = dataset.trainLabels.long()
-    classes = torch.unique(dataset.trainLabels)
+model = SimpleMLP([2,10,10,1])
+# model = SimpleMLP([784, 10])
+# model.cuda()
 
-# model = SimpleMLP([2,10,10,1])
-model = SimpleMLP([784, 10])
-model.cuda()
+multiclass_loss = CrossEntropyLoss()
+
+
+def multiclass_criterion(outputs, labels):
+    # CrossEntropyLoss requires flattened labels
+    return multiclass_loss(outputs, labels.view(-1))
+
+
+loss_function = BCEWithLogitsLoss() if dataset.is_binary else multiclass_criterion
+
 
 accuracies = []
 for experiment in range(experiments):
@@ -149,8 +102,8 @@ for experiment in range(experiments):
         # 3. Select the next point
         known_data = dataset.trainData[dataset.indicesKnown, :]
         known_labels = dataset.trainLabels[dataset.indicesKnown, :]
-        fit(model, known_data, known_labels, 1000, 1e-2, early_stopping_patience=40)
-        accuracies.append(evaluate(model))
+        fit(model, 1000, 1e-2, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
+        accuracies.append(evaluate(model, dataset))
         print(accuracies[-1])
         pickle.dump(accuracies, open("accuracies.pkl", "wb"))
-        selectNext()
+        select_next()
