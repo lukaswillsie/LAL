@@ -1,6 +1,7 @@
 import numpy as np
 import scipy
 import scipy.io as sio
+import torch
 
 from sklearn import preprocessing
 
@@ -20,6 +21,9 @@ class Dataset:
         self.testData = np.array([[]])
         self.testLabels = np.array([[]])
         self.start_state_random = np.random.RandomState(seed) if seed is not None else np.random
+        self.torch_generator = torch.Generator()
+        if seed:
+            self.torch_generator.manual_seed(seed)
         self.is_binary = True
         
     def setStartState(self, nStart):
@@ -42,6 +46,27 @@ class Dataset:
         # if we need more than 2 datapoints, select the rest nStart-2 at random
         if nStart>len(classes):
             self.indicesKnown = np.concatenate(([self.indicesKnown, indicesRestAll[0:nStart-len(classes)]]))
+        # the rest of the points will be unlabeled at the beginning
+        self.indicesUnknown = indicesRestAll[nStart-2:]
+
+    def set_start_state_torch(self, nStart):
+        self.nStart = nStart
+        # Get a point from each class
+        classes = torch.unique(self.trainLabels)
+        self.indicesKnown = torch.LongTensor()
+        indicesRestAll = torch.LongTensor()
+        for cls in classes:
+            # Get the indices of the examples in <cls>
+            cls_indices = torch.nonzero(self.trainLabels == cls, as_tuple=True)[0]
+            shuffle_indices = torch.randperm(cls_indices.shape[0], generator=self.torch_generator)
+            cls_indices = cls_indices[shuffle_indices]
+            self.indicesKnown = torch.cat((self.indicesKnown, torch.LongTensor([cls_indices[0]])), dim=0)
+            indicesRestAll = torch.cat((indicesRestAll, cls_indices[1:]), dim=0)
+        # permute them
+        indicesRestAll = self.start_state_random.permutation(indicesRestAll)
+        # if we need more than 2 datapoints, select the rest nStart-2 at random
+        if nStart>len(classes):
+            self.indicesKnown = torch.cat((self.indicesKnown, indicesRestAll[0:nStart-len(classes)]), dim=0)
         # the rest of the points will be unlabeled at the beginning
         self.indicesUnknown = indicesRestAll[nStart-2:]
 

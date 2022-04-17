@@ -1,4 +1,5 @@
 import copy
+import time
 
 import numpy as np
 import torch
@@ -6,7 +7,7 @@ from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2
 from Classes.models import SimpleMLP
 from scipy import stats
 from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
-from util import fit, predict_probabilities, Metrics
+from util import fit, predict_probabilities, Metrics, init_model
 
 
 def select_next_pnml():
@@ -43,7 +44,7 @@ def select_next_pnml():
                 dim=0
             )
             fit(*fit_params, lambda m: loss_function(m(train_data), train_labels),
-                early_stopping_patience=40)            # Get the probability predicted for class t
+                early_stopping_patience=40)  # Get the probability predicted for class t
             pred = predict_probabilities(temp_model, dataset.trainData[(unknown_index,), :])[:, j]
             label_probabilities.append(pred.item())
         label_probabilities = np.array(label_probabilities)
@@ -57,27 +58,31 @@ def select_next_pnml():
         if points_seen % 100 == 0:
             print(points_seen)
 
-    dataset.indicesKnown = np.concatenate(([dataset.indicesKnown, np.array([selectedIndex])]))
-    dataset.indicesUnknown = np.delete(dataset.indicesUnknown, selectedIndex1toN)
+    dataset.indicesKnown = torch.cat((dataset.indicesKnown, torch.LongTensor([selectedIndex])))
+    dataset.indicesUnknown = torch.cat((dataset.indicesUnknown[:selectedIndex1toN], dataset.indicesUnknown[selectedIndex1toN+1:]))
 
 
 def select_next_random():
     selected = torch.randint(low=0, high=dataset.indicesUnknown.shape[0], size=(1,)).item()
-    dataset.indicesKnown = np.concatenate(([dataset.indicesKnown, np.array([dataset.indicesUnknown[selected]])]))
-    dataset.indicesUnknown = np.delete(dataset.indicesUnknown, selected)
+    dataset.indicesKnown = torch.cat((dataset.indicesKnown, torch.LongTensor([selected])))
+    dataset.indicesUnknown = torch.cat((dataset.indicesUnknown[:selected], dataset.indicesUnknown[selected+1:]))
 
 
 def select_next_uncertainty():
     unknown_prob = predict_probabilities(model, dataset.trainData[dataset.indicesUnknown, :]).numpy()
     uncertainty = stats.entropy(unknown_prob, axis=1)
     most_uncertain_index = np.argmax(uncertainty, axis=0)
-    dataset.indicesKnown = np.concatenate(([dataset.indicesKnown, np.array([dataset.indicesUnknown[most_uncertain_index]])]))
-    dataset.indicesUnknown = np.delete(dataset.indicesUnknown, most_uncertain_index)
+    dataset.indicesKnown = torch.cat(
+        (dataset.indicesKnown, torch.LongTensor([dataset.indicesUnknown[most_uncertain_index]]))
+    )
+    dataset.indicesUnknown = torch.cat(
+        (dataset.indicesUnknown[:most_uncertain_index], dataset.indicesUnknown[most_uncertain_index+1:])
+    )
 
 
 experiments = 5
-iterations = 100
-method = "pnml"
+iterations = 200
+method = "uncertainty"
 
 select_next_options = {
     "rand": select_next_random,
@@ -85,8 +90,7 @@ select_next_options = {
     "uncertainty": select_next_uncertainty
 }
 
-dataset = DatasetCheckerboard2x2()
-dataset.setStartState(2)
+dataset = DatasetMNIST(seed=42)
 dataset.set_is_binary()
 
 dataset.trainData = torch.from_numpy(dataset.trainData).float()
@@ -94,17 +98,19 @@ dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float()
 dataset.testData = torch.from_numpy(dataset.testData).float()
 dataset.testLabels = torch.from_numpy(dataset.testLabels).float()
 
-
+# CrossEntropyLoss(), which we use for multiclass classification, requires long labels
 if not dataset.is_binary:
     dataset.trainLabels = dataset.trainLabels.long()
+    dataset.testLabels = dataset.testLabels.long()
 
 classes = torch.unique(dataset.trainLabels)
-
 
 model = None
 fit_params = None
 if isinstance(dataset, DatasetCheckerboard2x2):
-    model = SimpleMLP([2, 5, 10, 5, 1])
+    # model = SimpleMLP([2, 5, 10, 5, 1])
+    # fit_params = (model, 100, 1e-2)
+    model = SimpleMLP([2, 10, 10, 1])
     fit_params = (model, 100, 1e-2)
 elif isinstance(dataset, DatasetMNIST):
     model = SimpleMLP([784, 10])
@@ -130,19 +136,29 @@ metrics = Metrics(name, method)
 
 select_next = select_next_options[method]
 for experiment in range(experiments):
+    # Reset the dataset
+    dataset.set_start_state_torch(len(classes))
+    # Start tracking fresh data
     metrics.new_experiment()
-    print(f"Experiment {experiment+1}", end="")
+    # Randomly initialize the model weights
+    model.apply(init_model)
+    print(f"Experiment {experiment + 1}", end="")
     for iteration in range(iterations):
-        # 1. Train the model
-        # 2. Evaluate the model
-        # 3. Select the next point
+        start = time.time()
+        # Train the model on the points that have been chosen to be labelled
         known_data = dataset.trainData[dataset.indicesKnown, :]
         known_labels = dataset.trainLabels[dataset.indicesKnown, :]
         fit(*fit_params, lambda m: loss_function(m(known_data), known_labels),
             early_stopping_patience=40)
+
+        # Evaluate the model
         metrics.evaluate(model, dataset, loss_function)
+
+        # Select the next point to be labelled
         select_next()
         print(".", end="")
+        end = time.time()
+        print(end - start)
     print()
     metrics.save()
 

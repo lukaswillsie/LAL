@@ -2,7 +2,7 @@ import pickle
 import numpy as np
 import torch
 from Classes.dataset import Dataset
-from torch import optim
+from torch import optim, nn
 import matplotlib.pyplot as plt
 
 
@@ -82,6 +82,12 @@ class Metrics:
             plt.title(metric)
             plt.savefig(f"./new-out/{self.name}-{metric}.png")
             plt.clf()
+
+
+def init_model(m):
+    if isinstance(m, nn.Linear):
+        torch.nn.init.normal_(m.weight)
+        torch.nn.init.normal_(m.bias)
 
 
 def plot_combined_metrics(*metrics):
