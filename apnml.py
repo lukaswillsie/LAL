@@ -9,7 +9,7 @@ from scipy import stats
 from torch import optim
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss
 from Classes.svi import GaussianSVI
-from util import fit, evaluate, predict_probabilities
+from util import fit, Metrics, predict_probabilities, init_model
 
 
 def log_prior(latent):
@@ -111,7 +111,7 @@ def selectNext():
                 ),
                 dim=0
             )
-            fit(temp_model, 1000, 1e-2, lambda m: criterion(m, train_data, train_labels, svi_mean, svi_log_std, not dataset.is_binary), early_stopping_patience=30)
+            fit(temp_model, 100, 1e-2, lambda m: criterion(m, train_data, train_labels, svi_mean, svi_log_std, not dataset.is_binary), early_stopping_patience=30)
             # Get the probability predicted for class t
             pred = predict_probabilities(temp_model, dataset.trainData[(unknown_index,), :])[:, j]
             label_probabilities.append(pred.item())
@@ -128,10 +128,9 @@ def selectNext():
     dataset.indicesUnknown = np.delete(dataset.indicesUnknown, selectedIndex1toN)
 
 
-experiments = 1
+experiments = 5
 iterations = 100
-dataset = DatasetCheckerboard2x2()
-dataset.setStartState(2)
+dataset = DatasetCheckerboard2x2(seed=42)
 
 dataset.trainData = torch.from_numpy(dataset.trainData).float()
 dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float()
@@ -156,17 +155,23 @@ def multiclass_criterion(outputs, labels):
 
 loss_function = BCEWithLogitsLoss()
 
+metrics = Metrics('apmnl 2x2checkerboard', 'apmnl')
+
 accuracies = []
 for experiment in range(experiments):
-    dataset.setStartState(2)
+    # Reset the dataset
+    dataset.set_start_state_torch(len(classes))
+    # Start tracking fresh data
+    metrics.new_experiment()
+    # Randomly initialize the model weights
+    model.apply(init_model)
     for iteration in range(iterations):
         # 1. Train the model
         # 2. Evaluate the model
         # 3. Select the next point
         known_data = dataset.trainData[dataset.indicesKnown, :]
         known_labels = dataset.trainLabels[dataset.indicesKnown, :]
-        fit(model, 1000, 1e-2, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
-        accuracies.append(evaluate(model, dataset))
-        print(f"Iteration {iteration}: {accuracies[-1]}")
-        pickle.dump(accuracies, open("accuracies.pkl", "wb"))
+        fit(model, 100, 1e-2, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
+        metrics.evaluate(model, dataset, loss_function)
+        print(f"Iteration {iteration}: {metrics.validation_accuracy[-1][-1]}")
         selectNext()
