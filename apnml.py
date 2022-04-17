@@ -1,4 +1,5 @@
 import copy
+from mimetypes import init
 import pickle
 
 import numpy as np
@@ -33,8 +34,8 @@ def log_joint(latent):
 
 def get_approximate_posterior():
     # Hyperparameters
-    n_iters = 2000
-    num_samples_per_iter = 100
+    n_iters = 800
+    num_samples_per_iter = 50
 
     svi = GaussianSVI(true_posterior=log_joint, num_samples_per_iter=num_samples_per_iter)
 
@@ -65,6 +66,9 @@ def get_approximate_posterior():
     for i in range(n_iters):
         params = update(params)
         callback(params, i)
+
+    params[0].requires_grad = False
+    params[1].requires_grad = False
 
     return params
 
@@ -114,6 +118,7 @@ def selectNext():
             fit(temp_model, 100, 1e-2, lambda m: criterion(m, train_data, train_labels, svi_mean, svi_log_std, not dataset.is_binary), early_stopping_patience=30)
             # Get the probability predicted for class t
             pred = predict_probabilities(temp_model, dataset.trainData[(unknown_index,), :])[:, j]
+            pred.requires_grad = False
             label_probabilities.append(pred.item())
         label_probabilities = np.array(label_probabilities)
         # stats.entropy() will automatically normalize
@@ -130,7 +135,7 @@ def selectNext():
 
 experiments = 5
 iterations = 100
-dataset = DatasetSimulatedUnbalanced(1000, 2, seed=42)
+dataset = DatasetCheckerboard2x2(seed=42)
 
 dataset.trainData = torch.from_numpy(dataset.trainData).float()
 dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float()
@@ -146,6 +151,7 @@ if not is_binary:
 
 # model = SimpleMLP([2,10,10,1])
 model = SimpleMLP([2,10,10,1])
+fit_model = SimpleMLP([2,10,10,1])
 
 multiclass_loss = CrossEntropyLoss()
 
@@ -155,24 +161,27 @@ def multiclass_criterion(outputs, labels):
 
 loss_function = BCEWithLogitsLoss()
 
-metrics = Metrics('apmnl unbalanced', 'apmnl')
+metrics = Metrics('apmnl_2x2_trail_2', 'apmnl')
 
 accuracies = []
 for experiment in range(experiments):
     # Reset the dataset
     dataset.set_start_state_torch(len(classes))
+    dataset.trainData.grad = None
+    dataset.trainLabels.grad = None
+
     # Start tracking fresh data
     metrics.new_experiment()
     # Randomly initialize the model weights
-    model.apply(init_model)
+    fit_model.apply(init_model)
     for iteration in range(iterations):
         # 1. Train the model
         # 2. Evaluate the model
         # 3. Select the next point
         known_data = dataset.trainData[dataset.indicesKnown, :]
         known_labels = dataset.trainLabels[dataset.indicesKnown, :]
-        fit(model, 100, 1e-2, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
-        metrics.evaluate(model, dataset, loss_function)
+        fit(fit_model, 100, 1e-2, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
+        metrics.evaluate(fit_model, dataset, loss_function)
         print(f"Iteration {iteration}: {metrics.validation_accuracy[-1][-1]}")
         selectNext()
     metrics.save()
