@@ -33,8 +33,8 @@ def log_joint(latent):
 
 def get_approximate_posterior():
     # Hyperparameters
-    n_iters = 800
-    num_samples_per_iter = 50
+    n_iters = 2000
+    num_samples_per_iter = 100
 
     svi = GaussianSVI(true_posterior=log_joint, num_samples_per_iter=num_samples_per_iter)
 
@@ -175,3 +175,4 @@ for experiment in range(experiments):
         metrics.evaluate(model, dataset, loss_function)
         print(f"Iteration {iteration}: {metrics.validation_accuracy[-1][-1]}")
         selectNext()
+    metrics.save()
