@@ -63,7 +63,8 @@ class Dataset:
             self.indicesKnown = torch.cat((self.indicesKnown, torch.LongTensor([cls_indices[0]])), dim=0)
             indicesRestAll = torch.cat((indicesRestAll, cls_indices[1:]), dim=0)
         # permute them
-        indicesRestAll = self.start_state_random.permutation(indicesRestAll)
+        shuffle_indices = torch.randperm(indicesRestAll.shape[0], generator=self.torch_generator)
+        indicesRestAll = indicesRestAll[shuffle_indices]
         # if we need more than 2 datapoints, select the rest nStart-2 at random
         if nStart>len(classes):
             self.indicesKnown = torch.cat((self.indicesKnown, indicesRestAll[0:nStart-len(classes)]), dim=0)
