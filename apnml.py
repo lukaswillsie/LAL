@@ -24,7 +24,6 @@ def log_likelihood(latent):
     for n in range(batch_size):
         model.set_parameters(latent[n, :])
         probabilities = torch.Tensor(predict_probabilities(model, known_data))
-        print(probabilities.shape)
         log_prob = torch.sum(torch.log(torch.maximum(torch.gather(probabilities, dim=1, index=torch.Tensor(known_labels).long()), torch.Tensor([1e-9]))))
         result[n] = log_prob
     return torch.Tensor(result)
@@ -34,8 +33,8 @@ def log_joint(latent):
 
 def get_approximate_posterior():
     # Hyperparameters
-    n_iters = 10000
-    num_samples_per_iter = 500
+    n_iters = 800
+    num_samples_per_iter = 50
 
     svi = GaussianSVI(true_posterior=log_joint, num_samples_per_iter=num_samples_per_iter)
 
@@ -69,20 +68,9 @@ def get_approximate_posterior():
 
     return params
 
-@staticmethod
 def criterion(m, inputs, labels, svi_mean, svi_logstd, multiclass=False):
-    if multiclass:
-        logits = m(inputs)
-        assert logits.shape[-1] > 1
-        softmax = torch.nn.Softmax(dim=1)
-        probability = softmax(logits)
-    else:
-        logits = m(inputs)
-        assert logits.shape[-1] == 1
-        sigmoid = torch.nn.Sigmoid()
-        pos_probability = sigmoid(logits)
-        probability = torch.Tensor([1-pos_probability, pos_probability])
-
+    probability = predict_probabilities(m, inputs)
+    probability.requires_grad = True
     return -(torch.sum(torch.log(torch.gather(probability, dim=1, index=labels.long()))) + GaussianSVI.diag_gaussian_logpdf(m.get_parameters(), svi_mean, svi_logstd))
 
 def selectNext():
@@ -123,10 +111,10 @@ def selectNext():
                 ),
                 dim=0
             )
-            fit(temp_model, train_data, train_labels, criterion=lambda m, i, l: criterion(m, i, l, svi_mean, svi_log_std, True))
+            fit(temp_model, 1000, 1e-2, lambda m: criterion(m, train_data, train_labels, svi_mean, svi_log_std, not dataset.is_binary), early_stopping_patience=30)
             # Get the probability predicted for class t
             pred = predict_probabilities(temp_model, dataset.trainData[(unknown_index,), :])[:, j]
-            label_probabilities.append(pred)
+            label_probabilities.append(pred.item())
         label_probabilities = np.array(label_probabilities)
         # stats.entropy() will automatically normalize
         entropy = stats.entropy(label_probabilities)
@@ -135,7 +123,6 @@ def selectNext():
             selectedIndex = unknown_index
             selectedIndex1toN = i
         points_seen += 1
-        print(points_seen)
 
     dataset.indicesKnown = np.concatenate(([dataset.indicesKnown, np.array([selectedIndex])]))
     dataset.indicesUnknown = np.delete(dataset.indicesUnknown, selectedIndex1toN)
@@ -171,6 +158,7 @@ loss_function = BCEWithLogitsLoss()
 
 accuracies = []
 for experiment in range(experiments):
+    dataset.setStartState(2)
     for iteration in range(iterations):
         # 1. Train the model
         # 2. Evaluate the model
@@ -179,6 +167,6 @@ for experiment in range(experiments):
         known_labels = dataset.trainLabels[dataset.indicesKnown, :]
         fit(model, 1000, 1e-2, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
         accuracies.append(evaluate(model, dataset))
-        print(accuracies[-1])
+        print(f"Iteration {iteration}: {accuracies[-1]}")
         pickle.dump(accuracies, open("accuracies.pkl", "wb"))
         selectNext()
