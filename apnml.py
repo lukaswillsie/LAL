@@ -3,7 +3,7 @@ import pickle
 
 import numpy as np
 import torch
-from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2, DatasetCheckerboard4x4
+from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2, DatasetCheckerboard4x4, DatasetSimulatedUnbalanced
 from Classes.models import SimpleMLP
 from scipy import stats
 from torch import optim
@@ -130,7 +130,7 @@ def selectNext():
 
 experiments = 5
 iterations = 100
-dataset = DatasetCheckerboard4x4(seed=42)
+dataset = DatasetSimulatedUnbalanced(1000, 2, seed=42)
 
 dataset.trainData = torch.from_numpy(dataset.trainData).float()
 dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float()
@@ -155,7 +155,7 @@ def multiclass_criterion(outputs, labels):
 
 loss_function = BCEWithLogitsLoss()
 
-metrics = Metrics('apmnl 4x4checkerboard', 'apmnl')
+metrics = Metrics('apmnl unbalanced', 'apmnl')
 
 accuracies = []
 for experiment in range(experiments):
