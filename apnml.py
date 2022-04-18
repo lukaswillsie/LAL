@@ -34,8 +34,8 @@ def log_joint(latent):
 
 def get_approximate_posterior():
     # Hyperparameters
-    n_iters = 800
-    num_samples_per_iter = 50
+    n_iters = 2000
+    num_samples_per_iter = 100
 
     svi = GaussianSVI(true_posterior=log_joint, num_samples_per_iter=num_samples_per_iter)
 
@@ -161,7 +161,7 @@ def multiclass_criterion(outputs, labels):
 
 loss_function = BCEWithLogitsLoss()
 
-metrics = Metrics('apmnl_unbalanced_trail_2', 'apmnl')
+metrics = Metrics('apmnl_2x2_good_SVI', 'apmnl')
 
 accuracies = []
 for experiment in range(experiments):
