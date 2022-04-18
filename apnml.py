@@ -184,7 +184,7 @@ elif isinstance(dataset, DatasetMNIST):
     fit_model = SimpleMLP([784, 10])
     loss_function = multiclass_criterion
 
-metrics = Metrics('apmnl_2x2_acc_SVI', 'apmnl')
+metrics = Metrics('apnml_4x4', 'apnml4x4')
 
 accuracies = []
 for experiment in range(experiments):
