@@ -139,7 +139,7 @@ def selectNext():
 
 
 experiments = 5
-iterations = 100
+iterations = 200
 dataset = DatasetMNIST(seed=42)
 dataset.set_is_binary()
 # dataset = DatasetMNIST(seed=42)
@@ -191,7 +191,7 @@ elif isinstance(dataset, DatasetMNIST):
     fit_params = (1000, 1e-2)
     loss_function = multiclass_criterion
 
-metrics = Metrics('apnml_4x4', 'apnml4x4')
+metrics = Metrics('apnml_mnist', 'apnml_mnist')
 
 accuracies = []
 for experiment in range(experiments):
