@@ -3,7 +3,7 @@ import time
 
 import numpy as np
 import torch
-from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2
+from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2, DatasetCheckerboard4x4
 from Classes.models import SimpleMLP
 from scipy import stats
 from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
@@ -82,7 +82,7 @@ def select_next_uncertainty():
 
 experiments = 5
 iterations = 100
-method = "pnml"
+method = "uncertainty"
 
 select_next_options = {
     "rand": select_next_random,
@@ -112,6 +112,9 @@ if isinstance(dataset, DatasetCheckerboard2x2):
     # fit_params = (model, 100, 1e-2)
     model = SimpleMLP([2, 10, 10, 1])
     fit_params = (100, 1e-2)
+elif isinstance(dataset, DatasetCheckerboard4x4):
+    model = SimpleMLP([2, 10, 10, 1])
+    fit_params = (200, 32e-3)
 elif isinstance(dataset, DatasetMNIST):
     model = SimpleMLP([784, 10])
     fit_params = (1000, 1e-2)
@@ -131,7 +134,8 @@ def multiclass_criterion(outputs, labels):
 loss_function = BCEWithLogitsLoss() if dataset.is_binary else multiclass_criterion
 
 
-name = method + "-" + ("mnist" if isinstance(dataset, DatasetMNIST) else "checkerboard2x2")
+name = method + "-" + ("mnist" if isinstance(dataset, DatasetMNIST) else
+                       ("checkerboard2x2" if isinstance(dataset, DatasetCheckerboard2x2) else "checkerboard4x4"))
 metrics = Metrics(name, method)
 
 select_next = select_next_options[method]
