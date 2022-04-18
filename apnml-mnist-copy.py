@@ -191,7 +191,9 @@ elif isinstance(dataset, DatasetMNIST):
     fit_params = (1000, 1e-2)
     loss_function = multiclass_criterion
 
-metrics = Metrics('apnml_mnist', 'apnml_mnist')
+method = 'apnml'
+name = method + "-" + ("mnist" if isinstance(dataset, DatasetMNIST) else ("checkerboard2x2" if isinstance(dataset, DatasetCheckerboard2x2) else "checkerboard4x4"))
+metrics = Metrics(name, 'apnml')
 
 accuracies = []
 for experiment in range(experiments):
