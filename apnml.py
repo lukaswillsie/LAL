@@ -135,7 +135,7 @@ def selectNext():
 
 experiments = 5
 iterations = 100
-dataset = DatasetCheckerboard2x2(seed=42)
+dataset = DatasetSimulatedUnbalanced(1000, 2, seed=42)
 
 dataset.trainData = torch.from_numpy(dataset.trainData).float()
 dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float()
@@ -161,7 +161,7 @@ def multiclass_criterion(outputs, labels):
 
 loss_function = BCEWithLogitsLoss()
 
-metrics = Metrics('apmnl_2x2_trail_2', 'apmnl')
+metrics = Metrics('apmnl_unbalanced_trail_2', 'apmnl')
 
 accuracies = []
 for experiment in range(experiments):
