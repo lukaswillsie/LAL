@@ -43,7 +43,7 @@ def select_next_pnml():
                 ),
                 dim=0
             )
-            fit(*fit_params, lambda m: loss_function(m(train_data), train_labels),
+            fit(temp_model, *fit_params, lambda m: loss_function(m(train_data), train_labels),
                 early_stopping_patience=40)  # Get the probability predicted for class t
             pred = predict_probabilities(temp_model, dataset.trainData[(unknown_index,), :])[:, j]
             label_probabilities.append(pred.item())
@@ -81,8 +81,8 @@ def select_next_uncertainty():
 
 
 experiments = 5
-iterations = 200
-method = "uncertainty"
+iterations = 100
+method = "pnml"
 
 select_next_options = {
     "rand": select_next_random,
@@ -90,7 +90,7 @@ select_next_options = {
     "uncertainty": select_next_uncertainty
 }
 
-dataset = DatasetMNIST(seed=42)
+dataset = DatasetCheckerboard2x2(seed=42)
 dataset.set_is_binary()
 
 dataset.trainData = torch.from_numpy(dataset.trainData).float()
@@ -111,10 +111,10 @@ if isinstance(dataset, DatasetCheckerboard2x2):
     # model = SimpleMLP([2, 5, 10, 5, 1])
     # fit_params = (model, 100, 1e-2)
     model = SimpleMLP([2, 10, 10, 1])
-    fit_params = (model, 100, 1e-2)
+    fit_params = (100, 1e-2)
 elif isinstance(dataset, DatasetMNIST):
     model = SimpleMLP([784, 10])
-    fit_params = (model, 1000, 1e-2)
+    fit_params = (1000, 1e-2)
 
 if not model:
     print("ERROR: Haven't implemented this script for the chosen dataset")
@@ -142,23 +142,24 @@ for experiment in range(experiments):
     metrics.new_experiment()
     # Randomly initialize the model weights
     model.apply(init_model)
-    print(f"Experiment {experiment + 1}", end="")
+    print(f"Experiment {experiment + 1}")
     for iteration in range(iterations):
         start = time.time()
         # Train the model on the points that have been chosen to be labelled
         known_data = dataset.trainData[dataset.indicesKnown, :]
         known_labels = dataset.trainLabels[dataset.indicesKnown, :]
-        fit(*fit_params, lambda m: loss_function(m(known_data), known_labels),
+        fit(model, *fit_params, lambda m: loss_function(m(known_data), known_labels),
             early_stopping_patience=40)
 
         # Evaluate the model
         metrics.evaluate(model, dataset, loss_function)
+        print(metrics.validation_accuracy[-1][-1])
 
         # Select the next point to be labelled
         select_next()
-        print(".", end="")
         end = time.time()
-        print(end - start)
+        print(f"Iteration {iteration + 1} complete")
+        print(f"Time: {end - start}")
     print()
     metrics.save()
 
