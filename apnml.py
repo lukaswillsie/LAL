@@ -34,8 +34,8 @@ def log_joint(latent):
 
 def get_approximate_posterior():
     # Hyperparameters
-    n_iters = 2000
-    num_samples_per_iter = 100
+    n_iters = 800
+    num_samples_per_iter = 50
 
     svi = GaussianSVI(true_posterior=log_joint, num_samples_per_iter=num_samples_per_iter)
 
@@ -115,7 +115,7 @@ def selectNext():
                 ),
                 dim=0
             )
-            fit(temp_model, 100, 1e-2, lambda m: criterion(m, train_data, train_labels, svi_mean, svi_log_std, not dataset.is_binary), early_stopping_patience=30)
+            fit(model, *fit_params, lambda m: criterion(m, train_data, train_labels, svi_mean, svi_log_std, not dataset.is_binary), early_stopping_patience=30)
             # Get the probability predicted for class t
             pred = predict_probabilities(temp_model, dataset.trainData[(unknown_index,), :])[:, j]
             pred.requires_grad = False
@@ -135,7 +135,10 @@ def selectNext():
 
 experiments = 5
 iterations = 100
-dataset = DatasetCheckerboard2x2(seed=42)
+dataset = DatasetCheckerboard4x4(seed=42)
+
+# dataset = DatasetMNIST(seed=42)
+# dataset.set_is_binary()
 
 dataset.trainData = torch.from_numpy(dataset.trainData).float()
 dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float()
@@ -150,16 +153,36 @@ if not is_binary:
     classes = torch.unique(dataset.trainLabels)
 
 # model = SimpleMLP([2,10,10,1])
-model = SimpleMLP([2,10,10,1])
-fit_model = SimpleMLP([2,10,10,1])
+# model = SimpleMLP([2,10,10,1])
+# fit_model = SimpleMLP([2,10,10,1])
+
+
 
 multiclass_loss = CrossEntropyLoss()
 
 def multiclass_criterion(outputs, labels):
     # CrossEntropyLoss requires flattened labels
-    return multiclass_loss(outputs, labels.view(-1))
+    return multiclass_loss(outputs, labels.view(-1).long())
 
-loss_function = BCEWithLogitsLoss()
+model = None
+fit_params = None
+if isinstance(dataset, DatasetCheckerboard2x2):
+    # model = SimpleMLP([2, 5, 10, 5, 1])
+    # fit_params = (model, 100, 1e-2)
+    model = SimpleMLP([2,10,10,1])
+    fit_model = SimpleMLP([2,10,10,1])
+    loss_function = BCEWithLogitsLoss()
+elif isinstance(dataset, DatasetCheckerboard4x4):
+    # model = SimpleMLP([2, 5, 10, 5, 1])
+    # fit_params = (model, 100, 1e-2)
+    model = SimpleMLP([2, 10, 10, 1])
+    fit_model = SimpleMLP([2, 16, 10, 1])
+    fit_params = (200, 32e-3)
+    loss_function = BCEWithLogitsLoss()
+elif isinstance(dataset, DatasetMNIST):
+    model = SimpleMLP([784, 10])
+    fit_model = SimpleMLP([784, 10])
+    loss_function = multiclass_criterion
 
 metrics = Metrics('apmnl_2x2_acc_SVI', 'apmnl')
 
@@ -180,7 +203,7 @@ for experiment in range(experiments):
         # 3. Select the next point
         known_data = dataset.trainData[dataset.indicesKnown, :]
         known_labels = dataset.trainLabels[dataset.indicesKnown, :]
-        fit(fit_model, 100, 1e-2, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
+        fit(fit_model, *fit_params, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
         metrics.evaluate(fit_model, dataset, loss_function)
         print(f"Iteration {iteration}: {metrics.validation_accuracy[-1][-1]}")
         selectNext()
