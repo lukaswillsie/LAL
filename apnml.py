@@ -137,8 +137,8 @@ experiments = 5
 iterations = 100
 dataset = DatasetCheckerboard4x4(seed=42)
 
-# dataset = DatasetMNIST(seed=42)
-# dataset.set_is_binary()
+dataset = DatasetMNIST(seed=42)
+dataset.set_is_binary()
 
 dataset.trainData = torch.from_numpy(dataset.trainData).float()
 dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float()
