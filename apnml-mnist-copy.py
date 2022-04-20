@@ -39,8 +39,8 @@ def log_joint(latent):
 
 def get_approximate_posterior():
     # Hyperparameters
-    n_iters = 500
-    num_samples_per_iter = 500
+    n_iters = 10000
+    num_samples_per_iter = 50
 
     svi = GaussianSVI(true_posterior=log_joint, num_samples_per_iter=num_samples_per_iter)
 
@@ -191,7 +191,7 @@ elif isinstance(dataset, DatasetMNIST):
     fit_params = (1000, 1e-2)
     loss_function = multiclass_criterion
 
-method = 'apnmlal-500-samples'
+method = 'apnmlal-10000-iters'
 name = method + "-" + ("mnist" if isinstance(dataset, DatasetMNIST) else ("checkerboard2x2" if isinstance(dataset, DatasetCheckerboard2x2) else "checkerboard4x4"))
 metrics = Metrics(name, 'apnml')
 
