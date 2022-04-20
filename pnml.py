@@ -3,7 +3,7 @@ import time
 
 import numpy as np
 import torch
-from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2, DatasetCheckerboard4x4
+from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2, DatasetCheckerboard4x4, DatasetSimulatedUnbalanced
 from Classes.models import SimpleMLP
 from scipy import stats
 from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
@@ -82,7 +82,7 @@ def select_next_uncertainty():
 
 experiments = 5
 iterations = 100
-method = "uncertainty"
+method = "pnml"
 
 select_next_options = {
     "rand": select_next_random,
@@ -90,7 +90,7 @@ select_next_options = {
     "uncertainty": select_next_uncertainty
 }
 
-dataset = DatasetCheckerboard2x2(seed=42)
+dataset = DatasetSimulatedUnbalanced(1000, 2, seed=42)
 dataset.set_is_binary()
 
 dataset.trainData = torch.from_numpy(dataset.trainData).float()
@@ -118,6 +118,9 @@ elif isinstance(dataset, DatasetCheckerboard4x4):
 elif isinstance(dataset, DatasetMNIST):
     model = SimpleMLP([784, 10])
     fit_params = (1000, 1e-2)
+elif isinstance(dataset, DatasetSimulatedUnbalanced):
+    model = SimpleMLP([2, 10, 10, 1])
+    fit_params = (100, 1e-2)
 
 if not model:
     print("ERROR: Haven't implemented this script for the chosen dataset")
