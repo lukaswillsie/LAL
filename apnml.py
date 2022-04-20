@@ -135,10 +135,10 @@ def selectNext():
 
 experiments = 5
 iterations = 100
-dataset = DatasetCheckerboard4x4(seed=42)
+dataset = DatasetSimulatedUnbalanced(1000, 2, seed=42)
 
-dataset = DatasetMNIST(seed=42)
-dataset.set_is_binary()
+# dataset = DatasetMNIST(seed=42)
+# dataset.set_is_binary()
 
 dataset.trainData = torch.from_numpy(dataset.trainData).float()
 dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float()
@@ -172,6 +172,13 @@ if isinstance(dataset, DatasetCheckerboard2x2):
     model = SimpleMLP([2,10,10,1])
     fit_model = SimpleMLP([2,10,10,1])
     loss_function = BCEWithLogitsLoss()
+elif isinstance(dataset, DatasetSimulatedUnbalanced):
+    # model = SimpleMLP([2, 5, 10, 5, 1])
+    # fit_params = (model, 100, 1e-2)
+    model = SimpleMLP([2,10,10,1])
+    fit_model = SimpleMLP([2,10,10,1])
+    fit_params = (100, 1e-2)
+    loss_function = BCEWithLogitsLoss()
 elif isinstance(dataset, DatasetCheckerboard4x4):
     # model = SimpleMLP([2, 5, 10, 5, 1])
     # fit_params = (model, 100, 1e-2)
@@ -184,7 +191,10 @@ elif isinstance(dataset, DatasetMNIST):
     fit_model = SimpleMLP([784, 10])
     loss_function = multiclass_criterion
 
-metrics = Metrics('apnml_4x4', 'apnml4x4')
+method = 'apnmlal'
+name = method + "-" + 'unbalancedGC'
+# ("mnist" if isinstance(dataset, DatasetMNIST) else ("checkerboard2x2" if isinstance(dataset, DatasetCheckerboard2x2) else "checkerboard4x4"))
+metrics = Metrics(name, 'apnmlal')
 
 accuracies = []
 for experiment in range(experiments):
