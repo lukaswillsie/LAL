@@ -3,7 +3,8 @@ import time
 
 import numpy as np
 import torch
-from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2, DatasetCheckerboard4x4, DatasetSimulatedUnbalanced
+from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2, DatasetCheckerboard4x4, DatasetSimulatedUnbalanced, \
+    DatasetRotatedCheckerboard2x2
 from Classes.models import SimpleMLP
 from scipy import stats
 from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
@@ -90,7 +91,7 @@ select_next_options = {
     "uncertainty": select_next_uncertainty
 }
 
-dataset = DatasetSimulatedUnbalanced(1000, 2, seed=42)
+dataset = DatasetRotatedCheckerboard2x2(seed=42)
 dataset.set_is_binary()
 
 dataset.trainData = torch.from_numpy(dataset.trainData).float()
@@ -107,7 +108,7 @@ classes = torch.unique(dataset.trainLabels)
 
 model = None
 fit_params = None
-if isinstance(dataset, DatasetCheckerboard2x2):
+if isinstance(dataset, DatasetCheckerboard2x2) or isinstance(dataset, DatasetRotatedCheckerboard2x2):
     # model = SimpleMLP([2, 5, 10, 5, 1])
     # fit_params = (model, 100, 1e-2)
     model = SimpleMLP([2, 10, 10, 1])
