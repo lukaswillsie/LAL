@@ -39,7 +39,7 @@ def log_joint(latent):
 
 def get_approximate_posterior():
     # Hyperparameters
-    n_iters = 800
+    n_iters = 10000
     num_samples_per_iter = 50
 
     svi = GaussianSVI(true_posterior=log_joint, num_samples_per_iter=num_samples_per_iter)
@@ -139,7 +139,7 @@ def selectNext():
 
 
 experiments = 5
-iterations = 100
+iterations = 50
 dataset = DatasetMNIST(seed=42)
 dataset.set_is_binary()
 # dataset = DatasetMNIST(seed=42)
@@ -191,7 +191,9 @@ elif isinstance(dataset, DatasetMNIST):
     fit_params = (1000, 1e-2)
     loss_function = multiclass_criterion
 
-metrics = Metrics('apnml_4x4', 'apnml4x4')
+method = 'apnmlal-10000-iters'
+name = method + "-" + ("mnist" if isinstance(dataset, DatasetMNIST) else ("checkerboard2x2" if isinstance(dataset, DatasetCheckerboard2x2) else "checkerboard4x4"))
+metrics = Metrics(name, 'apnml')
 
 accuracies = []
 for experiment in range(experiments):
