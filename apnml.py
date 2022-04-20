@@ -4,7 +4,7 @@ import pickle
 
 import numpy as np
 import torch
-from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2, DatasetCheckerboard4x4, DatasetSimulatedUnbalanced
+from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2, DatasetCheckerboard4x4, DatasetRotatedCheckerboard2x2, DatasetSimulatedUnbalanced
 from Classes.models import SimpleMLP
 from scipy import stats
 from torch import optim
@@ -135,7 +135,7 @@ def selectNext():
 
 experiments = 5
 iterations = 100
-dataset = DatasetSimulatedUnbalanced(1000, 2, seed=42)
+dataset = DatasetRotatedCheckerboard2x2(seed=42)
 
 # dataset = DatasetMNIST(seed=42)
 # dataset.set_is_binary()
@@ -166,24 +166,25 @@ def multiclass_criterion(outputs, labels):
 
 model = None
 fit_params = None
-if isinstance(dataset, DatasetCheckerboard2x2):
-    # model = SimpleMLP([2, 5, 10, 5, 1])
-    # fit_params = (model, 100, 1e-2)
-    model = SimpleMLP([2,10,10,1])
-    fit_model = SimpleMLP([2,10,10,1])
-    loss_function = BCEWithLogitsLoss()
-elif isinstance(dataset, DatasetSimulatedUnbalanced):
+if isinstance(dataset, DatasetCheckerboard2x2) or isinstance(dataset, DatasetRotatedCheckerboard2x2):
     # model = SimpleMLP([2, 5, 10, 5, 1])
     # fit_params = (model, 100, 1e-2)
     model = SimpleMLP([2,10,10,1])
     fit_model = SimpleMLP([2,10,10,1])
     fit_params = (100, 1e-2)
     loss_function = BCEWithLogitsLoss()
+elif isinstance(dataset, DatasetSimulatedUnbalanced):
+    # model = SimpleMLP([2, 5, 10, 5, 1])
+    # fit_params = (model, 100, 1e-2)
+    model = SimpleMLP([2, 1])
+    fit_model = SimpleMLP([2,10,10,1])
+    fit_params = (100, 1e-3)
+    loss_function = BCEWithLogitsLoss()
 elif isinstance(dataset, DatasetCheckerboard4x4):
     # model = SimpleMLP([2, 5, 10, 5, 1])
     # fit_params = (model, 100, 1e-2)
     model = SimpleMLP([2, 10, 10, 1])
-    fit_model = SimpleMLP([2, 16, 10, 1])
+    fit_model = SimpleMLP([2, 10, 10, 1])
     fit_params = (200, 32e-3)
     loss_function = BCEWithLogitsLoss()
 elif isinstance(dataset, DatasetMNIST):
@@ -192,7 +193,7 @@ elif isinstance(dataset, DatasetMNIST):
     loss_function = multiclass_criterion
 
 method = 'apnmlal'
-name = method + "-" + 'unbalancedGC'
+name = method + "-" + 'rotated'
 # ("mnist" if isinstance(dataset, DatasetMNIST) else ("checkerboard2x2" if isinstance(dataset, DatasetCheckerboard2x2) else "checkerboard4x4"))
 metrics = Metrics(name, 'apnmlal')
 
