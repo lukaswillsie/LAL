@@ -113,15 +113,19 @@ if isinstance(dataset, DatasetCheckerboard2x2) or isinstance(dataset, DatasetRot
     # fit_params = (model, 100, 1e-2)
     model = SimpleMLP([2, 10, 10, 1])
     fit_params = (100, 1e-2)
+    dataset_name = "checkerboard2x2" if isinstance(dataset, DatasetCheckerboard2x2) else "rotated-checkerboard2x2"
 elif isinstance(dataset, DatasetCheckerboard4x4):
     model = SimpleMLP([2, 10, 10, 1])
     fit_params = (200, 32e-3)
+    dataset_name = "checkerboard4x4"
 elif isinstance(dataset, DatasetMNIST):
     model = SimpleMLP([784, 10])
     fit_params = (1000, 1e-2)
+    dataset_name = "mnist"
 elif isinstance(dataset, DatasetSimulatedUnbalanced):
     model = SimpleMLP([2, 10, 10, 1])
     fit_params = (100, 1e-2)
+    dataset_name = "unbalanced"
 
 if not model:
     print("ERROR: Haven't implemented this script for the chosen dataset")
@@ -138,8 +142,7 @@ def multiclass_criterion(outputs, labels):
 loss_function = BCEWithLogitsLoss() if dataset.is_binary else multiclass_criterion
 
 
-name = method + "-" + ("mnist" if isinstance(dataset, DatasetMNIST) else
-                       ("checkerboard2x2" if isinstance(dataset, DatasetCheckerboard2x2) else "checkerboard4x4"))
+name = method + "-" + dataset_name
 metrics = Metrics(name, method)
 
 select_next = select_next_options[method]
