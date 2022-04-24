@@ -4,3 +4,4 @@ exp/*
 Lib/
 Scripts/
 *.png
+metrics/*

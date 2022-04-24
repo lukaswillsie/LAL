@@ -1,13 +1,10 @@
 import copy
-from mimetypes import init
-import pickle
 
 import numpy as np
 import torch
 from Classes.dataset import DatasetMNIST, DatasetCheckerboard2x2, DatasetCheckerboard4x4, DatasetRotatedCheckerboard2x2, DatasetSimulatedUnbalanced
 from Classes.models import SimpleMLP
 from scipy import stats
-from torch import optim
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss
 from Classes.svi import GaussianSVI
 from util import fit, Metrics, predict_probabilities, init_model
@@ -16,6 +13,7 @@ from util import fit, Metrics, predict_probabilities, init_model
 def log_prior(latent):
     normal = torch.distributions.normal.Normal(0, 1)
     return torch.sum(normal.log_prob(latent), axis=-1)
+
 
 def log_likelihood(latent):
     batch_size = latent.shape[0]
@@ -29,8 +27,10 @@ def log_likelihood(latent):
         result[n] = log_prob
     return torch.Tensor(result)
 
+
 def log_joint(latent):
     return log_likelihood(latent) + log_prior(latent)
+
 
 def get_approximate_posterior():
     # Hyperparameters
@@ -72,10 +72,12 @@ def get_approximate_posterior():
 
     return params
 
+
 def criterion(m, inputs, labels, svi_mean, svi_logstd, multiclass=False):
     probability = predict_probabilities(m, inputs)
     probability.requires_grad = True
     return -(torch.sum(torch.log(torch.gather(probability, dim=1, index=labels.long()))) + GaussianSVI.diag_gaussian_logpdf(m.get_parameters(), svi_mean, svi_logstd))
+
 
 def selectNext():
     # 1. For each unlabelled point x

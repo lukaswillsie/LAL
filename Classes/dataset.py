@@ -1,12 +1,11 @@
 import numpy as np
-import scipy
 import scipy.io as sio
 import torch
 
 from sklearn import preprocessing
 
+
 class Dataset:
-    
     def __init__(self, seed=None):
         """
         Initialize a dataset for active learning
