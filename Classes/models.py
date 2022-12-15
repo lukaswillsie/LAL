@@ -52,4 +52,6 @@ class SimpleMLP(ACNMLNet):
         self.count_parameters()
 
     def forward(self, x):
+        # print(f"x.grad_fn: {x.grad_fn}")
+        # print(f"self.layers(x).grad_fn: {self.layers(x).grad_fn}")
         return self.layers(x)

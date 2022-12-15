@@ -7,7 +7,7 @@ from Classes.models import SimpleMLP
 from scipy import stats
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss
 from Classes.svi import GaussianSVI
-from util import fit, Metrics, predict_probabilities, init_model
+from util import fit, Metrics, predict_probabilities, init_model, predict_probabilities_with_grad
 
 
 def log_prior(latent):
@@ -17,15 +17,23 @@ def log_prior(latent):
 
 def log_likelihood(latent):
     batch_size = latent.shape[0]
-    result = np.zeros(batch_size)
+    result = torch.zeros(batch_size, requires_grad=True)
+    # print(f"!!!!!!!!!!!!{result.shape}")
     known_data = dataset.trainData[dataset.indicesKnown, :]
     known_labels = dataset.trainLabels[dataset.indicesKnown, :]
     for n in range(batch_size):
         model.set_parameters(latent[n, :])
-        probabilities = torch.Tensor(predict_probabilities(model, known_data))
+        probabilities = predict_probabilities_with_grad(model, known_data)
         log_prob = torch.sum(torch.log(torch.maximum(torch.gather(probabilities, dim=1, index=torch.Tensor(known_labels).long()), torch.Tensor([1e-9]))))
-        result[n] = log_prob
-    return torch.Tensor(result)
+        if n == 0:
+            # print("RESULT")
+            # print(log_prob.shape)
+            result = log_prob.unsqueeze(dim=0)
+        else:
+            # print(result.shape)
+            result = torch.cat((result, log_prob.unsqueeze(dim=0)), dim=0)
+        # result[n] = log_prob
+    return result
 
 
 def log_joint(latent):
@@ -74,9 +82,13 @@ def get_approximate_posterior():
 
 
 def criterion(m, inputs, labels, svi_mean, svi_logstd, multiclass=False):
-    probability = predict_probabilities(m, inputs)
-    probability.requires_grad = True
-    return -(torch.sum(torch.log(torch.gather(probability, dim=1, index=labels.long()))) + GaussianSVI.diag_gaussian_logpdf(m.get_parameters(), svi_mean, svi_logstd))
+    probability = predict_probabilities_with_grad(m, inputs)
+    # probability.requires_grad = True
+    # print(f"probability: {probability}")
+    # print(f"len of m.get_parameters: {len(m.get_parameters())}")
+    # print(f"{torch.log(torch.Tensor([0]))}")
+    eps=1e-7
+    return -(torch.sum(torch.log(torch.gather(probability, dim=1, index=labels.long()) + eps)) + GaussianSVI.diag_gaussian_logpdf(m.get_parameters(), svi_mean, svi_logstd))
 
 
 def selectNext():
@@ -98,6 +110,8 @@ def selectNext():
     svi_mean.requires_grad = False
     svi_log_std.requires_grad = False
 
+    print(f"svi_mean, svi_log_std: {svi_mean}, {svi_log_std}")
+
     points_seen = 0
     for i, unknown_index in enumerate(dataset.indicesUnknown):
         label_probabilities = []
@@ -117,14 +131,16 @@ def selectNext():
                 ),
                 dim=0
             )
-            fit(model, *fit_params, lambda m: criterion(m, train_data, train_labels, svi_mean, svi_log_std, not dataset.is_binary), early_stopping_patience=30)
+            fit(temp_model, *fit_params, lambda m: criterion(m, train_data, train_labels, svi_mean, svi_log_std, not dataset.is_binary), early_stopping_patience=30, debug=False)
             # Get the probability predicted for class t
             pred = predict_probabilities(temp_model, dataset.trainData[(unknown_index,), :])[:, j]
             pred.requires_grad = False
             label_probabilities.append(pred.item())
         label_probabilities = np.array(label_probabilities)
+        # print(f"label probabilities: {label_probabilities}")
         # stats.entropy() will automatically normalize
         entropy = stats.entropy(label_probabilities)
+        # print(f"entropy of point i: {entropy}")
         if entropy > max_uncertainity:
             max_uncertainity = entropy
             selectedIndex = unknown_index
@@ -210,13 +226,18 @@ for experiment in range(experiments):
     metrics.new_experiment()
     # Randomly initialize the model weights
     fit_model.apply(init_model)
+    model.apply(init_model)
     for iteration in range(iterations):
         # 1. Train the model
         # 2. Evaluate the model
         # 3. Select the next point
         known_data = dataset.trainData[dataset.indicesKnown, :]
         known_labels = dataset.trainLabels[dataset.indicesKnown, :]
+        print(known_data)
+        print(known_labels)
+        print("Running fit...")
         fit(fit_model, *fit_params, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
+        print("Running metrics.evaluate...")
         metrics.evaluate(fit_model, dataset, loss_function)
         print(f"Iteration {iteration}: {metrics.validation_accuracy[-1][-1]}")
         selectNext()

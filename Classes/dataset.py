@@ -116,6 +116,7 @@ class DatasetCheckerboard2x2(Dataset):
         self.testData = dt['x']
         self.testLabels = dt['y']
         self.testData = scaler.transform(self.testData)
+        self.name = 'DatasetCheckerboard2x2'
 
 
 class DatasetMNIST(Dataset):
@@ -158,6 +159,7 @@ class DatasetCheckerboard4x4(Dataset):
         self.testData = dt['x']
         self.testLabels = dt['y']
         self.testData = scaler.transform(self.testData)
+        self.name = 'DatasetCheckerboard4x4'
         
         
 class DatasetRotatedCheckerboard2x2(Dataset):
@@ -176,6 +178,7 @@ class DatasetRotatedCheckerboard2x2(Dataset):
         dt = np.load(filename)
         self.trainData = dt['x']
         self.trainLabels = dt['y']
+        self.name = 'DatasetRotatedCheckerboard2x2'
                 
         scaler = preprocessing.StandardScaler().fit(self.trainData)
         self.trainData = scaler.transform(self.trainData)
@@ -232,6 +235,7 @@ class DatasetSimulatedUnbalanced(Dataset):
         self.trainLabels = np.concatenate((trainY1, trainY2))
         self.testData = np.concatenate((testX1, testX2), axis=0)
         self.testLabels = np.concatenate((testY1, testY2))        
+        self.name = DatasetSimulatedUnbalanced
         
         
 class DatasetStriatumMini(Dataset):

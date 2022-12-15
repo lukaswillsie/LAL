@@ -114,6 +114,16 @@ def predict_probabilities(m, inputs):
         else:
             return torch.softmax(pred, dim=1)
 
+def predict_probabilities_with_grad(m, inputs):
+    pred = m(inputs)
+    # Binary classification with logits
+    if pred.shape[-1] == 1:
+        pos_prob = torch.sigmoid(pred)
+        return torch.cat((1 - pos_prob, pos_prob), dim=1)
+    # Softmax
+    else:
+        return torch.softmax(pred, dim=1)
+
 
 def fit(target_model, epochs, lr, criterion, early_stopping_patience=None, debug=False):
     """
@@ -136,8 +146,14 @@ def fit(target_model, epochs, lr, criterion, early_stopping_patience=None, debug
 
         train_loss = criterion(target_model)
         if debug:
-            print(train_loss)
+            # print(len([param for param in target_model.parameters()]))
+            if epoch % 10 == 0:
+                print(f"train loss on iteration {epoch}: {train_loss}")
         train_loss.backward()
+        
+        # if debug:
+        #     for param in target_model.parameters():
+        #         print(f"{param.grad}")
         optimizer.step()
 
         if early_stopping_patience:
