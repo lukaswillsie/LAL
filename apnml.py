@@ -137,7 +137,7 @@ def selectNext():
             train_labels = torch.cat(
                 (
                     known_labels,
-                    (torch.Tensor([[t]]) if is_binary else torch.LongTensor([[t]]))
+                    (torch.Tensor([[t]]) if is_binary else torch.LongTensor([[t]])).to(device)
                 ),
                 dim=0
             ).to(device)
