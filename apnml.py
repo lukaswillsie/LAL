@@ -19,9 +19,12 @@ def log_prior(latent):
 def log_likelihood(latent):
     batch_size = latent.shape[0]
     result = torch.zeros(batch_size, requires_grad=True)
+    result.to(device)
     # print(f"!!!!!!!!!!!!{result.shape}")
     known_data = dataset.trainData[dataset.indicesKnown, :]
     known_labels = dataset.trainLabels[dataset.indicesKnown, :]
+    known_data.to(device)
+    known_labels.to(device)
     for n in range(batch_size):
         model.set_parameters(latent[n, :])
         probabilities = predict_probabilities_with_grad(model, known_data)
@@ -34,6 +37,7 @@ def log_likelihood(latent):
             # print(result.shape)
             result = torch.cat((result, log_prob.unsqueeze(dim=0)), dim=0)
         # result[n] = log_prob
+    result.to(device)
     return result
 
 
@@ -88,6 +92,7 @@ def criterion(m, inputs, labels, svi_mean, svi_logstd, multiclass=False):
     # print(f"probability: {probability}")
     # print(f"len of m.get_parameters: {len(m.get_parameters())}")
     # print(f"{torch.log(torch.Tensor([0]))}")
+    probability.to(device)
     eps=1e-7
     return -(torch.sum(torch.log(torch.gather(probability, dim=1, index=labels.long()) + eps)) + GaussianSVI.diag_gaussian_logpdf(m.get_parameters(), svi_mean, svi_logstd))
 
@@ -110,6 +115,8 @@ def selectNext():
     (svi_mean, svi_log_std) = get_approximate_posterior()
     svi_mean.requires_grad = False
     svi_log_std.requires_grad = False
+    svi_mean.to(device)
+    svi_log_std.to(device)
 
     # print(f"svi_mean, svi_log_std: {svi_mean}, {svi_log_std}")
 
@@ -118,21 +125,25 @@ def selectNext():
         label_probabilities = []
         for j, t in enumerate(classes):
             temp_model = copy.deepcopy(model)
+            temp_model.to(device)
             train_data = torch.cat(
                 (
                     known_data,
                     dataset.trainData[(unknown_index,), :]
                 ),
                 dim=0
-            )
+            ).to(device)
             train_labels = torch.cat(
                 (
                     known_labels,
                     (torch.Tensor([[t]]) if is_binary else torch.LongTensor([[t]]))
                 ),
                 dim=0
-            )
+            ).to(device)
             fit(temp_model, *fit_params, lambda m: criterion(m, train_data, train_labels, svi_mean, svi_log_std, not dataset.is_binary), early_stopping_patience=30, debug=False)
+            del train_data
+            del train_labels
+            del temp_model
             # Get the probability predicted for class t
             pred = predict_probabilities(temp_model, dataset.trainData[(unknown_index,), :])[:, j]
             pred.requires_grad = False
@@ -218,6 +229,9 @@ metrics = Metrics(name, 'apnmlal')
 
 accuracies = []
 for experiment in range(experiments):
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
     # Reset the dataset
     dataset.set_start_state_torch(len(classes))
     dataset.trainData.grad = None
@@ -228,6 +242,10 @@ for experiment in range(experiments):
     # Randomly initialize the model weights
     fit_model.apply(init_model)
     model.apply(init_model)
+
+    model.to(device)
+    fit_model.to(device)
+
     for iteration in range(iterations):
         # 1. Train the model
         # 2. Evaluate the model
@@ -245,6 +263,6 @@ for experiment in range(experiments):
         selectNext()
 
         end = time.time()
-        print(f"Iteration {iteration + 1} complete")
+        print(f"Experiment {experiment + 1} Iteration {iteration + 1} complete")
         print(f"Time: {end - start}")
     metrics.save()
