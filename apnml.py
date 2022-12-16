@@ -1,4 +1,5 @@
 import copy
+import time
 
 import numpy as np
 import torch
@@ -42,8 +43,8 @@ def log_joint(latent):
 
 def get_approximate_posterior():
     # Hyperparameters
-    n_iters = 800
-    num_samples_per_iter = 50
+    n_iters = 1000
+    num_samples_per_iter = 75
 
     svi = GaussianSVI(true_posterior=log_joint, num_samples_per_iter=num_samples_per_iter)
 
@@ -58,7 +59,7 @@ def get_approximate_posterior():
     params = init_params
 
     def callback(params, t):
-        if t % 25 == 0:
+        if t % 100 == 0:
             print("Iteration {} lower bound {}".format(t, svi.objective(params)))
 
     def update(params):
@@ -110,7 +111,7 @@ def selectNext():
     svi_mean.requires_grad = False
     svi_log_std.requires_grad = False
 
-    print(f"svi_mean, svi_log_std: {svi_mean}, {svi_log_std}")
+    # print(f"svi_mean, svi_log_std: {svi_mean}, {svi_log_std}")
 
     points_seen = 0
     for i, unknown_index in enumerate(dataset.indicesUnknown):
@@ -211,7 +212,7 @@ elif isinstance(dataset, DatasetMNIST):
     loss_function = multiclass_criterion
 
 method = 'apnmlal'
-name = method + "-" + 'rotated'
+name = method + "-" + dataset.name
 # ("mnist" if isinstance(dataset, DatasetMNIST) else ("checkerboard2x2" if isinstance(dataset, DatasetCheckerboard2x2) else "checkerboard4x4"))
 metrics = Metrics(name, 'apnmlal')
 
@@ -231,6 +232,7 @@ for experiment in range(experiments):
         # 1. Train the model
         # 2. Evaluate the model
         # 3. Select the next point
+        start = time.time()
         known_data = dataset.trainData[dataset.indicesKnown, :]
         known_labels = dataset.trainLabels[dataset.indicesKnown, :]
         print(known_data)
@@ -241,4 +243,8 @@ for experiment in range(experiments):
         metrics.evaluate(fit_model, dataset, loss_function)
         print(f"Iteration {iteration}: {metrics.validation_accuracy[-1][-1]}")
         selectNext()
+
+        end = time.time()
+        print(f"Iteration {iteration + 1} complete")
+        print(f"Time: {end - start}")
     metrics.save()

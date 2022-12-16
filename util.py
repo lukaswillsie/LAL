@@ -73,7 +73,7 @@ class Metrics:
         self.average_uncertainty_incorrect.append([])
 
     def save(self):
-        pickle.dump(self, open(f"metrics/{self.name}.pkl", "wb"))
+        pickle.dump(self, open(f"metrics/{self.name}-{self.experiment_num}.pkl", "wb"))
 
     def plot(self):
         for metric in self.metrics:
