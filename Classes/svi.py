@@ -19,7 +19,7 @@ class GaussianSVI:
     def diag_gaussian_logpdf(x, mean, log_std):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # Evaluate the density of single point on a diagonal multivariate Gaussian.
-        normal = torch.distributions.normal.Normal(mean, torch.exp(log_std)).to(device)
+        normal = torch.distributions.normal.Normal(mean.to(device), torch.exp(log_std).to(device))
         return torch.sum(normal.log_prob(x.to(device)), dim=-1)
 
     def elbo(self, logprob, num_samples, mean, log_std):
