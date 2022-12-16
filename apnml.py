@@ -28,8 +28,8 @@ def log_likelihood(latent):
     for n in range(batch_size):
         model.set_parameters(latent[n, :])
         model.to(device)
-        probabilities = predict_probabilities_with_grad(model, known_data)
-        log_prob = torch.sum(torch.log(torch.maximum(torch.gather(probabilities, dim=1, index=known_labels.long()), torch.Tensor([1e-9]))))
+        probabilities = predict_probabilities_with_grad(model, known_data).to(device)
+        log_prob = torch.sum(torch.log(torch.maximum(torch.gather(probabilities, dim=1, index=known_labels.long().to(device)), torch.Tensor([1e-9]).to(device))))
         if n == 0:
             # print("RESULT")
             # print(log_prob.shape)
