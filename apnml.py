@@ -13,7 +13,7 @@ from util import fit, Metrics, predict_probabilities, init_model, predict_probab
 
 def log_prior(latent):
     normal = torch.distributions.normal.Normal(0, 1)
-    return torch.sum(normal.log_prob(latent), axis=-1)
+    return torch.sum(normal.log_prob(latent), axis=-1).to(device)
 
 
 def log_likelihood(latent):
