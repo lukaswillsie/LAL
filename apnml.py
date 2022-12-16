@@ -19,12 +19,12 @@ def log_prior(latent):
 def log_likelihood(latent):
     batch_size = latent.shape[0]
     result = torch.zeros(batch_size, requires_grad=True)
-    result.to(device)
+    result = result.to(device)
     # print(f"!!!!!!!!!!!!{result.shape}")
     known_data = dataset.trainData[dataset.indicesKnown, :]
     known_labels = dataset.trainLabels[dataset.indicesKnown, :]
-    known_data.to(device)
-    known_labels.to(device)
+    known_data = known_data.to(device)
+    known_labels = known_labels.to(device)
     for n in range(batch_size):
         model.set_parameters(latent[n, :])
         probabilities = predict_probabilities_with_grad(model, known_data)
@@ -37,7 +37,7 @@ def log_likelihood(latent):
             # print(result.shape)
             result = torch.cat((result, log_prob.unsqueeze(dim=0)), dim=0)
         # result[n] = log_prob
-    result.to(device)
+    result = result.to(device)
     return result
 
 
@@ -92,7 +92,7 @@ def criterion(m, inputs, labels, svi_mean, svi_logstd, multiclass=False):
     # print(f"probability: {probability}")
     # print(f"len of m.get_parameters: {len(m.get_parameters())}")
     # print(f"{torch.log(torch.Tensor([0]))}")
-    probability.to(device)
+    probability = probability.to(device)
     eps=1e-7
     return -(torch.sum(torch.log(torch.gather(probability, dim=1, index=labels.long()) + eps)) + GaussianSVI.diag_gaussian_logpdf(m.get_parameters(), svi_mean, svi_logstd))
 
@@ -115,8 +115,8 @@ def selectNext():
     (svi_mean, svi_log_std) = get_approximate_posterior()
     svi_mean.requires_grad = False
     svi_log_std.requires_grad = False
-    svi_mean.to(device)
-    svi_log_std.to(device)
+    svi_mean = svi_mean.to(device)
+    svi_log = svi_log_std.to(device)
 
     # print(f"svi_mean, svi_log_std: {svi_mean}, {svi_log_std}")
 
@@ -125,7 +125,7 @@ def selectNext():
         label_probabilities = []
         for j, t in enumerate(classes):
             temp_model = copy.deepcopy(model)
-            temp_model.to(device)
+            temp_model = temp_model.to(device)
             train_data = torch.cat(
                 (
                     known_data,
@@ -260,6 +260,8 @@ for experiment in range(experiments):
         print("Running fit...")
         fit(fit_model, *fit_params, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
         print("Running metrics.evaluate...")
+        dataset.testData = dataset.testData.to(device)
+        dataset.testLabels = dataset.testLabels.to(device)
         metrics.evaluate(fit_model, dataset, loss_function)
         print(f"Iteration {iteration}: {metrics.validation_accuracy[-1][-1]}")
         selectNext()
