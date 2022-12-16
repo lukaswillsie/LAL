@@ -253,6 +253,8 @@ for experiment in range(experiments):
         start = time.time()
         known_data = dataset.trainData[dataset.indicesKnown, :]
         known_labels = dataset.trainLabels[dataset.indicesKnown, :]
+        known_data.to(device)
+        known_labels.to(device)
         print(known_data)
         print(known_labels)
         print("Running fit...")
