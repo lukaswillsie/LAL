@@ -126,7 +126,7 @@ def selectNext():
         label_probabilities = []
         for j, t in enumerate(classes):
             temp_model = copy.deepcopy(model)
-            temp_model = temp_model.to(device)
+            temp_model.to(device)
             train_data = torch.cat(
                 (
                     known_data,
@@ -142,13 +142,13 @@ def selectNext():
                 dim=0
             ).to(device)
             fit(temp_model, *fit_params, lambda m: criterion(m, train_data, train_labels, svi_mean, svi_log_std, not dataset.is_binary), early_stopping_patience=30, debug=False)
-            del train_data
-            del train_labels
-            del temp_model
             # Get the probability predicted for class t
             pred = predict_probabilities(temp_model, dataset.trainData[(unknown_index,), :])[:, j]
             pred.requires_grad = False
             label_probabilities.append(pred.item())
+            del train_data
+            del train_labels
+            del temp_model
         label_probabilities = np.array(label_probabilities)
         # print(f"label probabilities: {label_probabilities}")
         # stats.entropy() will automatically normalize
