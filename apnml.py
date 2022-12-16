@@ -247,6 +247,11 @@ for experiment in range(experiments):
     model.to(device)
     fit_model.to(device)
 
+    dataset.testData = dataset.testData.to(device)
+    dataset.testLabels = dataset.testLabels.to(device)
+    dataset.trainLabels = dataset.trainLabels.to(device)
+    dataset.trainData = dataset.trainData.to(device)
+
     for iteration in range(iterations):
         # 1. Train the model
         # 2. Evaluate the model
@@ -261,8 +266,6 @@ for experiment in range(experiments):
         print("Running fit...")
         fit(fit_model, *fit_params, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
         print("Running metrics.evaluate...")
-        dataset.testData = dataset.testData.to(device)
-        dataset.testLabels = dataset.testLabels.to(device)
         metrics.evaluate(fit_model, dataset, loss_function)
         print(f"Iteration {iteration}: {metrics.validation_accuracy[-1][-1]}")
         selectNext()
