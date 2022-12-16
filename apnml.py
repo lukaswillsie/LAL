@@ -117,7 +117,7 @@ def selectNext():
     svi_mean.requires_grad = False
     svi_log_std.requires_grad = False
     svi_mean = svi_mean.to(device)
-    svi_log = svi_log_std.to(device)
+    svi_log_std = svi_log_std.to(device)
 
     # print(f"svi_mean, svi_log_std: {svi_mean}, {svi_log_std}")
 
