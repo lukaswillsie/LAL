@@ -29,7 +29,7 @@ def get_metrics_objs(dataset):
         pass
 
     try:
-        apnml = pickle.load(open(f"metrics/apnml-{dataset}.pkl", "rb"))
+        apnml = pickle.load(open(f"metrics/apnmlal-{dataset}.pkl", "rb"))
         apnml.method = "apNMLAL"
         metrics.append(apnml)
     except FileNotFoundError:
@@ -98,7 +98,7 @@ get_subset_of_dataset(100, checkerboard4x4)
 rotated_checkerboard2x2 = DatasetRotatedCheckerboard2x2()
 get_subset_of_dataset(50, rotated_checkerboard2x2)
 
-make_experiment_plot(*get_metrics_objs("rotated-checkerboard2x2"), dataset_name="Rotated Checkerboard2x2", dataset=rotated_checkerboard2x2, axis=axs[1, 0])
+make_experiment_plot(*get_metrics_objs("DatasetRotatedCheckerboard2x2-0"), dataset_name="Rotated Checkerboard2x2", dataset=rotated_checkerboard2x2, axis=axs[1, 0])
 # make_experiment_plot(*get_metrics_objs("mnist"), dataset_name="MNIST", dataset=None, axis=axs[1, 1])
 make_experiment_plot(*get_metrics_objs("checkerboard2x2"), dataset_name="Checkerboard2x2", dataset=checkerboard_2x2, axis=axs[0, 0])
 make_experiment_plot(*get_metrics_objs("checkerboard4x4"), dataset_name="Checkerboard4x4", dataset=checkerboard4x4, axis=axs[1, 1])
