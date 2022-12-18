@@ -7,7 +7,7 @@ class GaussianSVI:
     def __init__(self, true_posterior, num_samples_per_iter) -> None:
         self.logprob = true_posterior
         self.num_samples = num_samples_per_iter
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = "cpu"
 
     def diag_gaussian_sample(self, num_samples, mean, log_std):
         # Take a single sample from a diagonal multivariate Gaussian.
@@ -17,7 +17,7 @@ class GaussianSVI:
 
     @staticmethod
     def diag_gaussian_logpdf(x, mean, log_std):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = "cpu"
         # Evaluate the density of single point on a diagonal multivariate Gaussian.
         normal = torch.distributions.normal.Normal(mean.to(device), torch.exp(log_std).to(device))
         return torch.sum(normal.log_prob(x.to(device)), dim=-1)
