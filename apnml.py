@@ -166,7 +166,7 @@ def selectNext():
 
 experiments = 5
 iterations = 100
-dataset = DatasetCheckerboard4x4(seed=42)
+dataset = DatasetCheckerboard2x2(seed=42)
 
 # dataset = DatasetMNIST(seed=42)
 # dataset.set_is_binary()
