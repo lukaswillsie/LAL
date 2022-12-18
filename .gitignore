@@ -3,5 +3,3 @@ exp/*
 *.pyc
 Lib/
 Scripts/
-*.png
-metrics/*
