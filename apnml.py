@@ -231,7 +231,7 @@ metrics = Metrics(name, 'apnmlal')
 accuracies = []
 for experiment in range(experiments):
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cpu"
     print(f"Using device: {device}")
     # Reset the dataset
     dataset.set_start_state_torch(len(classes))
