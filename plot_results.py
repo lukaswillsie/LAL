@@ -55,8 +55,9 @@ def make_experiment_plot(*metrics, axis, dataset_name: str = "", dataset: Datase
     for metric_obj in metrics:
         methods.append(metric_obj.method)
         y = np.mean(np.array(metric_obj.validation_accuracy), axis=0)
-        x = 200
+        x = np.arange(y.shape[0]) + 2
         axis.plot(x, y, label=metric_obj.method, color=colour_map[metric_obj.method])
+        plt.xlim([0, 200])
         # axis.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1.0, decimals=0))
     # plt.legend(loc='lower right')
     # Put a small version of the dataset in the bottom-right of the plot
