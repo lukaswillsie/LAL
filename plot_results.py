@@ -57,7 +57,6 @@ def make_experiment_plot(*metrics, axis, dataset_name: str = "", dataset: Datase
         y = np.mean(np.array(metric_obj.validation_accuracy), axis=0)
         x = np.arange(y.shape[0]) + 2
         axis.plot(x, y, label=metric_obj.method, color=colour_map[metric_obj.method])
-        plt.xlim([0, 200])
         # axis.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1.0, decimals=0))
     # plt.legend(loc='lower right')
     # Put a small version of the dataset in the bottom-right of the plot
@@ -103,6 +102,7 @@ make_experiment_plot(*get_metrics_objs("rotated-checkerboard2x2"), dataset_name=
 # make_experiment_plot(*get_metrics_objs("mnist"), dataset_name="MNIST", dataset=None, axis=axs[1, 1])
 make_experiment_plot(*get_metrics_objs("checkerboard2x2"), dataset_name="Checkerboard2x2", dataset=checkerboard_2x2, axis=axs[0, 0])
 make_experiment_plot(*get_metrics_objs("checkerboard4x4"), dataset_name="Checkerboard4x4", dataset=checkerboard4x4, axis=axs[1, 1])
+plt.xlim([0, 200])
 axs[0,1].spines['top'].set_visible(False)
 axs[0,1].spines['left'].set_visible(False)
 axs[0,1].spines['bottom'].set_visible(False)

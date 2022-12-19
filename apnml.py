@@ -9,6 +9,11 @@ from scipy import stats
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss
 from Classes.svi import GaussianSVI
 from util import fit, Metrics, predict_probabilities, init_model, predict_probabilities_with_grad
+import multiprocessing
+from multiprocessing import Process, Array
+import math
+
+CPU_COUNT = multiprocessing.cpu_count() - 1
 
 
 def log_prior(latent):
@@ -97,32 +102,10 @@ def criterion(m, inputs, labels, svi_mean, svi_logstd, multiclass=False):
     eps=1e-7
     return -(torch.sum(torch.log(torch.gather(probability, dim=1, index=labels.long()) + eps)) + GaussianSVI.diag_gaussian_logpdf(m.get_parameters(), svi_mean, svi_logstd))
 
-
-def selectNext():
-    # 1. For each unlabelled point x
-    #   i. For each label t
-    #       a. Add the (x, t) pair to the data and fit
-    #       b. Get p(t|x) and store
-    #   ii. Normalize p(t | x) for all t
-    #   iii. Compute uncertainty using some metric
-    #   iv. Update index of most uncertain point if necessary
-    max_uncertainity = float("-inf")
-    selectedIndex = -1
-    selectedIndex1toN = -1
-
-    known_data = dataset.trainData[dataset.indicesKnown, :]
-    known_labels = dataset.trainLabels[dataset.indicesKnown, :]
-
-    (svi_mean, svi_log_std) = get_approximate_posterior()
-    svi_mean.requires_grad = False
-    svi_log_std.requires_grad = False
-    svi_mean = svi_mean.to(device)
-    svi_log_std = svi_log_std.to(device)
-
-    # print(f"svi_mean, svi_log_std: {svi_mean}, {svi_log_std}")
-
-    points_seen = 0
-    for i, unknown_index in enumerate(dataset.indicesUnknown):
+def _update_entropy_list(entropy_list, l, r, known_data, known_labels, svi_mean, svi_log_std, verify_fill):
+    print("Starting _update_entropy_list...")
+    for i in range(l, r):
+        unknown_index = dataset.indicesUnknown[i]
         label_probabilities = []
         for j, t in enumerate(classes):
             temp_model = copy.deepcopy(model)
@@ -152,13 +135,56 @@ def selectNext():
         label_probabilities = np.array(label_probabilities)
         # print(f"label probabilities: {label_probabilities}")
         # stats.entropy() will automatically normalize
-        entropy = stats.entropy(label_probabilities)
-        # print(f"entropy of point i: {entropy}")
-        if entropy > max_uncertainity:
-            max_uncertainity = entropy
-            selectedIndex = unknown_index
-            selectedIndex1toN = i
-        points_seen += 1
+
+        verify_fill[i] = 1
+        entropy_list[i] = stats.entropy(label_probabilities)
+
+def selectNext():
+    # 1. For each unlabelled point x
+    #   i. For each label t
+    #       a. Add the (x, t) pair to the data and fit
+    #       b. Get p(t|x) and store
+    #   ii. Normalize p(t | x) for all t
+    #   iii. Compute uncertainty using some metric
+    #   iv. Update index of most uncertain point if necessary
+    selectedIndex = -1
+    selectedIndex1toN = -1
+
+    known_data = dataset.trainData[dataset.indicesKnown, :]
+    known_labels = dataset.trainLabels[dataset.indicesKnown, :]
+
+    (svi_mean, svi_log_std) = get_approximate_posterior()
+    svi_mean.requires_grad = False
+    svi_log_std.requires_grad = False
+    svi_mean = svi_mean.to(device)
+    svi_log_std = svi_log_std.to(device)
+
+    # print(f"svi_mean, svi_log_std: {svi_mean}, {svi_log_std}")
+    num_pts_unknown = len(dataset.indicesUnknown)
+    entropy_list = [0.0 for _ in range(num_pts_unknown)]
+    entropy_list = Array('d', entropy_list)
+    verify_fill = [0 for _ in range(num_pts_unknown)]
+    verify_fill = Array('i', verify_fill)
+    pts_per_cpu = math.ceil(num_pts_unknown / CPU_COUNT)
+
+    ps = []
+
+    for i in range(CPU_COUNT):
+        l = pts_per_cpu * i
+        r = min(pts_per_cpu * (i + 1), num_pts_unknown)
+        ps.append(Process(target=_update_entropy_list, args=(entropy_list, l, r, known_data, known_labels, svi_mean, svi_log_std, verify_fill)))
+        ps[-1].start()
+
+    print(len(ps))
+
+    for p in ps:
+        p.join()
+
+    print(sum(verify_fill))
+    assert sum(verify_fill) == num_pts_unknown
+    
+    selectedIndex1toN = np.argmax(entropy_list)
+    selectedIndex = dataset.indicesUnknown[selectedIndex1toN]
 
     dataset.indicesKnown = np.concatenate(([dataset.indicesKnown, np.array([selectedIndex])]))
     dataset.indicesUnknown = np.delete(dataset.indicesUnknown, selectedIndex1toN)
