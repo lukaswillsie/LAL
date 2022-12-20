@@ -185,117 +185,116 @@ def selectNext():
     dataset.indicesKnown = np.concatenate(([dataset.indicesKnown, np.array([selectedIndex])]))
     dataset.indicesUnknown = np.delete(dataset.indicesUnknown, selectedIndex1toN)
 
-
-experiments = 5
-iterations = 100
-dataset = DatasetCheckerboard2x2(seed=42)
-
-# dataset = DatasetMNIST(seed=42)
-# dataset.set_is_binary()
-
-dataset.trainData = torch.from_numpy(dataset.trainData).float()
-dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float()
-dataset.testData = torch.from_numpy(dataset.testData).float()
-dataset.testLabels = torch.from_numpy(dataset.testLabels).float()
-
-classes = torch.unique(dataset.trainLabels)
-is_binary = len(classes) == 2
-
-if not is_binary:
-    dataset.trainLabels = dataset.trainLabels.long()
-    classes = torch.unique(dataset.trainLabels)
-
-# model = SimpleMLP([2,10,10,1])
-# model = SimpleMLP([2,10,10,1])
-# fit_model = SimpleMLP([2,10,10,1])
-
-
-
-multiclass_loss = CrossEntropyLoss()
-
-def multiclass_criterion(outputs, labels):
-    # CrossEntropyLoss requires flattened labels
-    return multiclass_loss(outputs, labels.view(-1).long())
-
-model = None
-fit_params = None
-if isinstance(dataset, DatasetCheckerboard2x2) or isinstance(dataset, DatasetRotatedCheckerboard2x2):
-    # model = SimpleMLP([2, 5, 10, 5, 1])
-    # fit_params = (model, 100, 1e-2)
-    model = SimpleMLP([2,10,10,1])
-    fit_model = SimpleMLP([2,10,10,1])
-    fit_params = (100, 1e-2)
-    loss_function = BCEWithLogitsLoss()
-elif isinstance(dataset, DatasetSimulatedUnbalanced):
-    # model = SimpleMLP([2, 5, 10, 5, 1])
-    # fit_params = (model, 100, 1e-2)
-    model = SimpleMLP([2, 1])
-    fit_model = SimpleMLP([2,10,10,1])
-    fit_params = (100, 1e-3)
-    loss_function = BCEWithLogitsLoss()
-elif isinstance(dataset, DatasetCheckerboard4x4):
-    # model = SimpleMLP([2, 5, 10, 5, 1])
-    # fit_params = (model, 100, 1e-2)
-    model = SimpleMLP([2, 10, 10, 1])
-    fit_model = SimpleMLP([2, 10, 10, 1])
-    fit_params = (200, 32e-3)
-    loss_function = BCEWithLogitsLoss()
-elif isinstance(dataset, DatasetMNIST):
-    model = SimpleMLP([784, 10])
-    fit_model = SimpleMLP([784, 10])
-    loss_function = multiclass_criterion
-
-method = 'apnmlal'
-name = method + "-" + dataset.name
-# ("mnist" if isinstance(dataset, DatasetMNIST) else ("checkerboard2x2" if isinstance(dataset, DatasetCheckerboard2x2) else "checkerboard4x4"))
-metrics = Metrics(name, 'apnmlal')
-
-accuracies = []
-for experiment in range(experiments):
-
-    device = "cpu"
-    print(f"Using device: {device}")
-    # Reset the dataset
-    dataset.set_start_state_torch(len(classes))
-    dataset.trainData.grad = None
-    dataset.trainLabels.grad = None
-
-    # Start tracking fresh data
-    metrics.new_experiment()
-    # Randomly initialize the model weights
-    fit_model.apply(init_model)
-    model.apply(init_model)
-
-    model.to(device)
-    fit_model.to(device)
-
-    dataset.testData = dataset.testData.to(device)
-    dataset.testLabels = dataset.testLabels.to(device)
-    dataset.trainLabels = dataset.trainLabels.to(device)
-    dataset.trainData = dataset.trainData.to(device)
-
-    for iteration in range(iterations):
-        # 1. Train the model
-        # 2. Evaluate the model
-        # 3. Select the next point
-        start = time.time()
-        known_data = dataset.trainData[dataset.indicesKnown, :]
-        known_labels = dataset.trainLabels[dataset.indicesKnown, :]
-        known_data = known_data.to(device)
-        known_labels = known_labels.to(device)
-        print(known_data)
-        print(known_labels)
-        print("Running fit...")
-        fit(fit_model, *fit_params, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
-        print("Running metrics.evaluate...")
-        metrics.evaluate(fit_model, dataset, loss_function)
-        print(f"Iteration {iteration}: {metrics.validation_accuracy[-1][-1]}")
-        selectNext()
-
-        end = time.time()
-        print(f"Experiment {experiment + 1} Iteration {iteration + 1} complete")
-        print(f"Time: {end - start}")
-    metrics.save()
-
 if __name__ == "__main__":
     multiprocessing.set_start_method('spawn')
+
+    experiments = 5
+    iterations = 100
+    dataset = DatasetCheckerboard2x2(seed=42)
+
+    # dataset = DatasetMNIST(seed=42)
+    # dataset.set_is_binary()
+
+    dataset.trainData = torch.from_numpy(dataset.trainData).float()
+    dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float()
+    dataset.testData = torch.from_numpy(dataset.testData).float()
+    dataset.testLabels = torch.from_numpy(dataset.testLabels).float()
+
+    classes = torch.unique(dataset.trainLabels)
+    is_binary = len(classes) == 2
+
+    if not is_binary:
+        dataset.trainLabels = dataset.trainLabels.long()
+        classes = torch.unique(dataset.trainLabels)
+
+    # model = SimpleMLP([2,10,10,1])
+    # model = SimpleMLP([2,10,10,1])
+    # fit_model = SimpleMLP([2,10,10,1])
+
+
+
+    multiclass_loss = CrossEntropyLoss()
+
+    def multiclass_criterion(outputs, labels):
+        # CrossEntropyLoss requires flattened labels
+        return multiclass_loss(outputs, labels.view(-1).long())
+
+    model = None
+    fit_params = None
+    if isinstance(dataset, DatasetCheckerboard2x2) or isinstance(dataset, DatasetRotatedCheckerboard2x2):
+        # model = SimpleMLP([2, 5, 10, 5, 1])
+        # fit_params = (model, 100, 1e-2)
+        model = SimpleMLP([2,10,10,1])
+        fit_model = SimpleMLP([2,10,10,1])
+        fit_params = (100, 1e-2)
+        loss_function = BCEWithLogitsLoss()
+    elif isinstance(dataset, DatasetSimulatedUnbalanced):
+        # model = SimpleMLP([2, 5, 10, 5, 1])
+        # fit_params = (model, 100, 1e-2)
+        model = SimpleMLP([2, 1])
+        fit_model = SimpleMLP([2,10,10,1])
+        fit_params = (100, 1e-3)
+        loss_function = BCEWithLogitsLoss()
+    elif isinstance(dataset, DatasetCheckerboard4x4):
+        # model = SimpleMLP([2, 5, 10, 5, 1])
+        # fit_params = (model, 100, 1e-2)
+        model = SimpleMLP([2, 10, 10, 1])
+        fit_model = SimpleMLP([2, 10, 10, 1])
+        fit_params = (200, 32e-3)
+        loss_function = BCEWithLogitsLoss()
+    elif isinstance(dataset, DatasetMNIST):
+        model = SimpleMLP([784, 10])
+        fit_model = SimpleMLP([784, 10])
+        loss_function = multiclass_criterion
+
+    method = 'apnmlal'
+    name = method + "-" + dataset.name
+    # ("mnist" if isinstance(dataset, DatasetMNIST) else ("checkerboard2x2" if isinstance(dataset, DatasetCheckerboard2x2) else "checkerboard4x4"))
+    metrics = Metrics(name, 'apnmlal')
+
+    accuracies = []
+    for experiment in range(experiments):
+
+        device = "cpu"
+        print(f"Using device: {device}")
+        # Reset the dataset
+        dataset.set_start_state_torch(len(classes))
+        dataset.trainData.grad = None
+        dataset.trainLabels.grad = None
+
+        # Start tracking fresh data
+        metrics.new_experiment()
+        # Randomly initialize the model weights
+        fit_model.apply(init_model)
+        model.apply(init_model)
+
+        model.to(device)
+        fit_model.to(device)
+
+        dataset.testData = dataset.testData.to(device)
+        dataset.testLabels = dataset.testLabels.to(device)
+        dataset.trainLabels = dataset.trainLabels.to(device)
+        dataset.trainData = dataset.trainData.to(device)
+
+        for iteration in range(iterations):
+            # 1. Train the model
+            # 2. Evaluate the model
+            # 3. Select the next point
+            start = time.time()
+            known_data = dataset.trainData[dataset.indicesKnown, :]
+            known_labels = dataset.trainLabels[dataset.indicesKnown, :]
+            known_data = known_data.to(device)
+            known_labels = known_labels.to(device)
+            print(known_data)
+            print(known_labels)
+            print("Running fit...")
+            fit(fit_model, *fit_params, lambda m: loss_function(m(known_data), known_labels), early_stopping_patience=40)
+            print("Running metrics.evaluate...")
+            metrics.evaluate(fit_model, dataset, loss_function)
+            print(f"Iteration {iteration}: {metrics.validation_accuracy[-1][-1]}")
+            selectNext()
+
+            end = time.time()
+            print(f"Experiment {experiment + 1} Iteration {iteration + 1} complete")
+            print(f"Time: {end - start}")
+        metrics.save()
