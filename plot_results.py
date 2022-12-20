@@ -102,7 +102,6 @@ make_experiment_plot(*get_metrics_objs("rotated-checkerboard2x2"), dataset_name=
 # make_experiment_plot(*get_metrics_objs("mnist"), dataset_name="MNIST", dataset=None, axis=axs[1, 1])
 make_experiment_plot(*get_metrics_objs("checkerboard2x2"), dataset_name="Checkerboard2x2", dataset=checkerboard_2x2, axis=axs[0, 0])
 make_experiment_plot(*get_metrics_objs("checkerboard4x4"), dataset_name="Checkerboard4x4", dataset=checkerboard4x4, axis=axs[1, 1])
-plt.xlim([0, 200])
 axs[0,1].spines['top'].set_visible(False)
 axs[0,1].spines['left'].set_visible(False)
 axs[0,1].spines['bottom'].set_visible(False)
