@@ -193,7 +193,7 @@ if __name__ == "__main__":
 
     experiments = 5
     iterations = 100
-    dataset = DatasetRotatedCheckerboard2x2(seed=42)
+    dataset = DatasetCheckerboard4x4(seed=42)
 
     # dataset = DatasetMNIST(seed=42)
     # dataset.set_is_binary()
