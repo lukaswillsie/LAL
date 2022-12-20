@@ -101,7 +101,7 @@ def criterion(m, inputs, labels, svi_mean, svi_logstd, multiclass=False):
     eps=1e-7
     return -(torch.sum(torch.log(torch.gather(probability, dim=1, index=labels.long()) + eps)) + GaussianSVI.diag_gaussian_logpdf(m.get_parameters(), svi_mean, svi_logstd))
 
-def _update_entropy_list(entropy_list, l, r, known_data, known_labels, svi_mean, svi_log_std, verify_fill):
+def _update_entropy_list(entropy_list, l, r, known_data, known_labels, svi_mean, svi_log_std, verify_fill, dataset):
     print("Starting _update_entropy_list...")
     for i in range(l, r):
         unknown_index = dataset.indicesUnknown[i]
@@ -138,7 +138,7 @@ def _update_entropy_list(entropy_list, l, r, known_data, known_labels, svi_mean,
         verify_fill[i] = 1
         entropy_list[i] = stats.entropy(label_probabilities)
 
-def selectNext():
+def selectNext(dataset):
     # 1. For each unlabelled point x
     #   i. For each label t
     #       a. Add the (x, t) pair to the data and fit
@@ -171,7 +171,7 @@ def selectNext():
     for i in range(CPU_COUNT):
         l = pts_per_cpu * i
         r = min(pts_per_cpu * (i + 1), num_pts_unknown)
-        ps.append(Process(target=_update_entropy_list, args=(entropy_list, l, r, known_data, known_labels, svi_mean, svi_log_std, verify_fill)))
+        ps.append(Process(target=_update_entropy_list, args=(entropy_list, l, r, known_data, known_labels, svi_mean, svi_log_std, verify_fill, dataset)))
         ps[-1].start()
 
     for p in ps:
@@ -185,76 +185,78 @@ def selectNext():
     dataset.indicesKnown = np.concatenate(([dataset.indicesKnown, np.array([selectedIndex])]))
     dataset.indicesUnknown = np.delete(dataset.indicesUnknown, selectedIndex1toN)
 
-experiments = 5
-iterations = 100
-dataset = DatasetCheckerboard2x2(seed=42)
 
-# dataset = DatasetMNIST(seed=42)
-# dataset.set_is_binary()
-
-dataset.trainData = torch.from_numpy(dataset.trainData).float()
-dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float()
-dataset.testData = torch.from_numpy(dataset.testData).float()
-dataset.testLabels = torch.from_numpy(dataset.testLabels).float()
-
-classes = torch.unique(dataset.trainLabels)
-is_binary = len(classes) == 2
-
-if not is_binary:
-    dataset.trainLabels = dataset.trainLabels.long()
-    classes = torch.unique(dataset.trainLabels)
-
-# model = SimpleMLP([2,10,10,1])
-# model = SimpleMLP([2,10,10,1])
-# fit_model = SimpleMLP([2,10,10,1])
-
-
-
-multiclass_loss = CrossEntropyLoss()
-
-def multiclass_criterion(outputs, labels):
-    # CrossEntropyLoss requires flattened labels
-    return multiclass_loss(outputs, labels.view(-1).long())
-
-model = None
-fit_params = None
-if isinstance(dataset, DatasetCheckerboard2x2) or isinstance(dataset, DatasetRotatedCheckerboard2x2):
-    # model = SimpleMLP([2, 5, 10, 5, 1])
-    # fit_params = (model, 100, 1e-2)
-    model = SimpleMLP([2,10,10,1])
-    fit_model = SimpleMLP([2,10,10,1])
-    fit_params = (100, 1e-2)
-    loss_function = BCEWithLogitsLoss()
-elif isinstance(dataset, DatasetSimulatedUnbalanced):
-    # model = SimpleMLP([2, 5, 10, 5, 1])
-    # fit_params = (model, 100, 1e-2)
-    model = SimpleMLP([2, 1])
-    fit_model = SimpleMLP([2,10,10,1])
-    fit_params = (100, 1e-3)
-    loss_function = BCEWithLogitsLoss()
-elif isinstance(dataset, DatasetCheckerboard4x4):
-    # model = SimpleMLP([2, 5, 10, 5, 1])
-    # fit_params = (model, 100, 1e-2)
-    model = SimpleMLP([2, 10, 10, 1])
-    fit_model = SimpleMLP([2, 10, 10, 1])
-    fit_params = (200, 32e-3)
-    loss_function = BCEWithLogitsLoss()
-elif isinstance(dataset, DatasetMNIST):
-    model = SimpleMLP([784, 10])
-    fit_model = SimpleMLP([784, 10])
-    loss_function = multiclass_criterion
-
-method = 'apnmlal'
-name = method + "-" + dataset.name
-# ("mnist" if isinstance(dataset, DatasetMNIST) else ("checkerboard2x2" if isinstance(dataset, DatasetCheckerboard2x2) else "checkerboard4x4"))
-metrics = Metrics(name, 'apnmlal')
-
-accuracies = []
-
-device = 'cpu'
 
 if __name__ == "__main__":
     multiprocessing.set_start_method('spawn')
+
+    experiments = 5
+    iterations = 100
+    dataset = DatasetCheckerboard2x2(seed=42)
+
+    # dataset = DatasetMNIST(seed=42)
+    # dataset.set_is_binary()
+
+    dataset.trainData = torch.from_numpy(dataset.trainData).float()
+    dataset.trainLabels = torch.from_numpy(dataset.trainLabels).float()
+    dataset.testData = torch.from_numpy(dataset.testData).float()
+    dataset.testLabels = torch.from_numpy(dataset.testLabels).float()
+
+    classes = torch.unique(dataset.trainLabels)
+    is_binary = len(classes) == 2
+
+    if not is_binary:
+        dataset.trainLabels = dataset.trainLabels.long()
+        classes = torch.unique(dataset.trainLabels)
+
+    # model = SimpleMLP([2,10,10,1])
+    # model = SimpleMLP([2,10,10,1])
+    # fit_model = SimpleMLP([2,10,10,1])
+
+
+
+    multiclass_loss = CrossEntropyLoss()
+
+    def multiclass_criterion(outputs, labels):
+        # CrossEntropyLoss requires flattened labels
+        return multiclass_loss(outputs, labels.view(-1).long())
+
+    model = None
+    fit_params = None
+    if isinstance(dataset, DatasetCheckerboard2x2) or isinstance(dataset, DatasetRotatedCheckerboard2x2):
+        # model = SimpleMLP([2, 5, 10, 5, 1])
+        # fit_params = (model, 100, 1e-2)
+        model = SimpleMLP([2,10,10,1])
+        fit_model = SimpleMLP([2,10,10,1])
+        fit_params = (100, 1e-2)
+        loss_function = BCEWithLogitsLoss()
+    elif isinstance(dataset, DatasetSimulatedUnbalanced):
+        # model = SimpleMLP([2, 5, 10, 5, 1])
+        # fit_params = (model, 100, 1e-2)
+        model = SimpleMLP([2, 1])
+        fit_model = SimpleMLP([2,10,10,1])
+        fit_params = (100, 1e-3)
+        loss_function = BCEWithLogitsLoss()
+    elif isinstance(dataset, DatasetCheckerboard4x4):
+        # model = SimpleMLP([2, 5, 10, 5, 1])
+        # fit_params = (model, 100, 1e-2)
+        model = SimpleMLP([2, 10, 10, 1])
+        fit_model = SimpleMLP([2, 10, 10, 1])
+        fit_params = (200, 32e-3)
+        loss_function = BCEWithLogitsLoss()
+    elif isinstance(dataset, DatasetMNIST):
+        model = SimpleMLP([784, 10])
+        fit_model = SimpleMLP([784, 10])
+        loss_function = multiclass_criterion
+
+    method = 'apnmlal'
+    name = method + "-" + dataset.name
+    # ("mnist" if isinstance(dataset, DatasetMNIST) else ("checkerboard2x2" if isinstance(dataset, DatasetCheckerboard2x2) else "checkerboard4x4"))
+    metrics = Metrics(name, 'apnmlal')
+
+    accuracies = []
+
+    device = 'cpu'
 
     for experiment in range(experiments):
 
@@ -294,7 +296,7 @@ if __name__ == "__main__":
             print("Running metrics.evaluate...")
             metrics.evaluate(fit_model, dataset, loss_function)
             print(f"Iteration {iteration}: {metrics.validation_accuracy[-1][-1]}")
-            selectNext()
+            selectNext(dataset)
 
             end = time.time()
             print(f"Experiment {experiment + 1} Iteration {iteration + 1} complete")
