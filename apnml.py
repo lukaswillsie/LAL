@@ -52,8 +52,8 @@ def log_joint(latent):
 
 def get_approximate_posterior():
     # Hyperparameters
-    n_iters = 1000
-    num_samples_per_iter = 75
+    n_iters = 800
+    num_samples_per_iter = 250
 
     svi = GaussianSVI(true_posterior=log_joint, num_samples_per_iter=num_samples_per_iter)
 
@@ -193,7 +193,7 @@ if __name__ == "__main__":
 
     experiments = 5
     iterations = 100
-    dataset = DatasetCheckerboard2x2(seed=42)
+    dataset = DatasetRotatedCheckerboard2x2(seed=42)
 
     # dataset = DatasetMNIST(seed=42)
     # dataset.set_is_binary()
