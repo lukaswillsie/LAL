@@ -101,10 +101,11 @@ def criterion(m, inputs, labels, svi_mean, svi_logstd, multiclass=False):
     eps=1e-7
     return -(torch.sum(torch.log(torch.gather(probability, dim=1, index=labels.long()) + eps)) + GaussianSVI.diag_gaussian_logpdf(m.get_parameters(), svi_mean, svi_logstd))
 
-def _update_entropy_list(entropy_list, l, r, known_data, known_labels, svi_mean, svi_log_std, verify_fill, dataset):
+def _update_entropy_list(entropy_list, l, r, known_data, known_labels, svi_mean, svi_log_std, verify_fill, trainData, is_binary, indicesUnknown, classes, device, fit_params):
     print("Starting _update_entropy_list...")
+    model = SimpleMLP([2, 10, 10, 1])
     for i in range(l, r):
-        unknown_index = dataset.indicesUnknown[i]
+        unknown_index = indicesUnknown[i]
         label_probabilities = []
         for j, t in enumerate(classes):
             temp_model = copy.deepcopy(model)
@@ -112,7 +113,7 @@ def _update_entropy_list(entropy_list, l, r, known_data, known_labels, svi_mean,
             train_data = torch.cat(
                 (
                     known_data,
-                    dataset.trainData[(unknown_index,), :]
+                    trainData[(unknown_index,), :]
                 ),
                 dim=0
             ).to(device)
@@ -123,9 +124,9 @@ def _update_entropy_list(entropy_list, l, r, known_data, known_labels, svi_mean,
                 ),
                 dim=0
             ).to(device)
-            fit(temp_model, *fit_params, lambda m: criterion(m, train_data, train_labels, svi_mean, svi_log_std, not dataset.is_binary), early_stopping_patience=30, debug=False)
+            fit(temp_model, *fit_params, lambda m: criterion(m, train_data, train_labels, svi_mean, svi_log_std, not is_binary), early_stopping_patience=30, debug=False)
             # Get the probability predicted for class t
-            pred = predict_probabilities(temp_model, dataset.trainData[(unknown_index,), :])[:, j]
+            pred = predict_probabilities(temp_model, trainData[(unknown_index,), :])[:, j]
             pred.requires_grad = False
             label_probabilities.append(pred.item())
             del train_data
@@ -138,7 +139,7 @@ def _update_entropy_list(entropy_list, l, r, known_data, known_labels, svi_mean,
         verify_fill[i] = 1
         entropy_list[i] = stats.entropy(label_probabilities)
 
-def selectNext(dataset):
+def selectNext(dataset, classes, device, fit_params):
     # 1. For each unlabelled point x
     #   i. For each label t
     #       a. Add the (x, t) pair to the data and fit
@@ -171,7 +172,7 @@ def selectNext(dataset):
     for i in range(CPU_COUNT):
         l = pts_per_cpu * i
         r = min(pts_per_cpu * (i + 1), num_pts_unknown)
-        ps.append(Process(target=_update_entropy_list, args=(entropy_list, l, r, known_data, known_labels, svi_mean, svi_log_std, verify_fill, dataset)))
+        ps.append(Process(target=_update_entropy_list, args=(entropy_list, l, r, known_data, known_labels, svi_mean, svi_log_std, verify_fill, dataset.trainData, dataset.is_binary, dataset.indicesUnknown, classes, device, fit_params)))
         ps[-1].start()
 
     for p in ps:
@@ -185,7 +186,7 @@ def selectNext(dataset):
     dataset.indicesKnown = np.concatenate(([dataset.indicesKnown, np.array([selectedIndex])]))
     dataset.indicesUnknown = np.delete(dataset.indicesUnknown, selectedIndex1toN)
 
-
+device = 'cpu'
 
 if __name__ == "__main__":
     multiprocessing.set_start_method('spawn')
@@ -256,8 +257,6 @@ if __name__ == "__main__":
 
     accuracies = []
 
-    device = 'cpu'
-
     for experiment in range(experiments):
 
         print(f"Using device: {device}")
@@ -296,7 +295,7 @@ if __name__ == "__main__":
             print("Running metrics.evaluate...")
             metrics.evaluate(fit_model, dataset, loss_function)
             print(f"Iteration {iteration}: {metrics.validation_accuracy[-1][-1]}")
-            selectNext(dataset)
+            selectNext(dataset, classes, device, fit_params)
 
             end = time.time()
             print(f"Experiment {experiment + 1} Iteration {iteration + 1} complete")
