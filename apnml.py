@@ -15,7 +15,6 @@ import math
 
 CPU_COUNT = multiprocessing.cpu_count() - 1
 
-
 def log_prior(latent):
     normal = torch.distributions.normal.Normal(0, 1)
     return torch.sum(normal.log_prob(latent), axis=-1).to(device)
@@ -53,7 +52,7 @@ def log_joint(latent):
 
 def get_approximate_posterior():
     # Hyperparameters
-    n_iters = 1000
+    n_iters = 100
     num_samples_per_iter = 75
 
     svi = GaussianSVI(true_posterior=log_joint, num_samples_per_iter=num_samples_per_iter)
@@ -175,12 +174,9 @@ def selectNext():
         ps.append(Process(target=_update_entropy_list, args=(entropy_list, l, r, known_data, known_labels, svi_mean, svi_log_std, verify_fill)))
         ps[-1].start()
 
-    print(len(ps))
-
     for p in ps:
         p.join()
 
-    print(sum(verify_fill))
     assert sum(verify_fill) == num_pts_unknown
     
     selectedIndex1toN = np.argmax(entropy_list)
@@ -300,3 +296,6 @@ for experiment in range(experiments):
         print(f"Experiment {experiment + 1} Iteration {iteration + 1} complete")
         print(f"Time: {end - start}")
     metrics.save()
+
+if __name__ == "__main__":
+    multiprocessing.set_start_method('spawn')
